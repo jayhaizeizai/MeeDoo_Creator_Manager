@@ -73,3 +73,9 @@ Store level memberships and effective rates independently from pipeline stages. 
 Add agreement_templates, agreement_instances, agreement_events, agreement_acceptances, receipt_exports, content_reviews, level_memberships, tracking_links, attributed_orders, commission_ledger and content_licenses to the proposed model.
 Track separate clocks for production, publication/trial, attribution, order validation, organic license and paid license activation/use. Completion of content work does not close pending commission liabilities or license timers.
 Attribution implementation remains blocked on organic-code versus last-paid-click tie-breaking and code-only timing. Payment method/deadline and hold durations must be configured before issuing complete terms.
+
+## Modash email-enrichment boundary — 2026-10-07 decision
+Candidates → manual Modash workflow for email supplementation → available export/manual mapped contact data → contact-enrichment import → own-platform communication and downstream operations.
+Modash-specific mechanics are unresolved; obtain a real export sample before finalizing adapter fields. This is not a request to purchase/use its API.
+Missing email is a contact-data blocker, not a collaboration disposition. Preserve creator identity through the round trip using social identity and verified source IDs; never match only on shared agency email.
+Import creates or updates reviewed contact candidates without changing owner, conversation history, accepted terms or sending anything. See CSV_IMPORT_SPEC.md CONTACT_ENRICHMENT mode and PRODUCT_SPEC.md section 17.
