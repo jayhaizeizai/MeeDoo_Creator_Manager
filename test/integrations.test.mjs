@@ -1,0 +1,27 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {Store} from '../lib/store.mjs';
+import {createIntegrations} from '../lib/integrations.mjs';
+const env={APP_ORIGIN:'https://creator.example',GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret',TOKEN_ENCRYPTION_KEY:'11'.repeat(32),WORK_EMAIL:'work@example.test'};
+const sess={user:{role:'admin',open_id:'admin',tenant_key:'tenant'},csrf:'browser-binding'};
+function harness(overrides={}){const store=new Store();const calls=[];const upstream=async(url,options)=>{calls.push(url);let data;if(url.includes('/token'))data={access_token:'private-access',refresh_token:'private-refresh',scope:'https://www.googleapis.com/auth/gmail.readonly'};else if(url.endsWith('/profile'))data={emailAddress:overrides.email||env.WORK_EMAIL};else if(url.includes('threads?'))data={threads:[{id:'thread-1'}]};else data={id:'thread-1',historyId:'10',messages:[{id:'msg-1',threadId:'thread-1',labelIds:['SENT'],internalDate:'1',payload:{mimeType:'text/plain',headers:[{name:'From',value:env.WORK_EMAIL},{name:'To',value:'creator@example.test'},{name:'Subject',value:'Collaboration'}],body:{data:Buffer.from('Hello').toString('base64url')}}}]};return {ok:true,json:async()=>data};};const service=createIntegrations(store,env,upstream);return {store,service,calls};}
+async function connect(service){const start=service.start(sess);const state=new URL(start.url).searchParams.get('state');const callback=new URL(env.APP_ORIGIN+'/auth/google/callback?code=test&state='+state);await service.finish(callback,sess);return callback;}
+test('Google OAuth is browser-bound, one-use, mailbox-restricted and encrypted at rest',async()=>{
+ const h=harness();try{
+ const callback=await connect(h.service);assert.equal(h.service.status(sess.user).gmail_connected,true);
+ const row=h.store.db.prepare('SELECT * FROM connections').get();assert.ok(!JSON.stringify(row).includes('private-refresh'));assert.ok(!JSON.stringify(h.store.history('gmail','tenant')).includes('private-refresh'));
+ await assert.rejects(()=>h.service.finish(callback,sess),e=>e.code==='invalid_google_state');
+ const start=h.service.start(sess),wrong=new URL(env.APP_ORIGIN+'/auth/google/callback?code=test&state='+new URL(start.url).searchParams.get('state'));
+ await assert.rejects(()=>h.service.finish(wrong,{...sess,csrf:'different'}),e=>e.code==='invalid_google_state');
+ }finally{h.store.close();}
+ const wrong=harness({email:'other@example.test'});try{await assert.rejects(()=>connect(wrong.service),e=>e.code==='wrong_mailbox');assert.equal(wrong.service.status(sess.user).gmail_connected,false);}finally{wrong.store.close();}
+});
+test('full-thread synchronization is idempotent, unclassified and never sends',async()=>{
+ const h=harness();try{await connect(h.service);await h.service.sync(sess.user,{after:'2026-01-01'});await h.service.sync(sess.user,{after:'2026-01-01'});
+ const rows=h.store.list('mail_threads','tenant');assert.equal(rows.length,1);assert.equal(rows[0].version,1);assert.equal(rows[0].classification,'unreviewed');assert.equal(rows[0].messages[0].labels[0],'SENT');assert.ok(h.calls.every(url=>!url.includes('/send')));
+ h.service.disconnect(sess.user);await assert.rejects(()=>h.service.sync(sess.user,{after:'2026-01-01'}),e=>e.code==='gmail_not_connected');
+ }finally{h.store.close();}
+});
+test('attachment or HTML-only messages cannot be marked complete for AI',()=>{
+ const h=harness();try{const raw={id:'t',messages:[{id:'m',payload:{mimeType:'multipart/mixed',parts:[{mimeType:'text/plain',body:{data:Buffer.from('text').toString('base64url')}},{filename:'terms.pdf',body:{attachmentId:'attachment'}}]}}]};assert.equal(h.service.normalizeThread(raw).complete,false);assert.equal(h.service.normalizeThread({id:'t',messages:[{id:'m',payload:{mimeType:'text/html',body:{data:'eA'}}}]}).complete,false);}finally{h.store.close();}
+});

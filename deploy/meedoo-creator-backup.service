@@ -1,0 +1,9 @@
+[Unit]
+Description=MeeDoo Creator database backup
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/meedoo-creator.env
+ExecStart=/usr/bin/node /opt/meedoo-creator/current/deploy/backup.mjs
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

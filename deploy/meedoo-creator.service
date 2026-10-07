@@ -14,6 +14,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+StateDirectory=meedoo-creator
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/meedoo-creator
 UMask=0077
 [Install]
 WantedBy=multi-user.target
