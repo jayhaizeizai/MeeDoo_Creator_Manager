@@ -1,5 +1,5 @@
 # MeeDoo Creator Program Context
-Version: 0.2 — 2026-10-07.
+Version: 0.3 — 2026-10-07.
 Source: [MeeDoo Creator Outreach Playbook Team Template](https://ujpq1udzmhi7.jp.larksuite.com/docx/N8utdzBjCochlXxk1EljxglFpQd), read 2026-10-07; page displayed last modified October 6. This is a source-grounded operational summary, not a legal opinion or evidence that a particular creator accepted terms.
 
 ## Precedence
@@ -63,3 +63,6 @@ Current Lookbook, size guide, actual stock, shipping costs/duties, finished offe
 The source contains qualification criteria based on age, gender and appearance; automated eligibility rules are not defined by this summary. Keep qualification review manual until the implementation criteria are explicitly settled.
 Do not claim attachments exist unless attached. Historical shipping estimates are not live stock facts.
 Knowledge changes need owner, source, scope, effective date and version.
+
+## Imported lead-data boundary
+The supplied CSV schema and screenshot have now been inspected; see CSV_IMPORT_SPEC.md and UI_SPEC.md. CSV contains lead qualification observations, not accepted terms or verified outreach history. Mixed email notes and owner conflicts need review. Original metric timestamps are unknown. Do not expose internal subjective notes in outbound drafts or use the legacy race field for Agent screening.
