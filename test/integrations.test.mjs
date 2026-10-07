@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Store} from '../lib/store.mjs';
 import {createIntegrations} from '../lib/integrations.mjs';
-const env={APP_ORIGIN:'https://creator.example',GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret',TOKEN_ENCRYPTION_KEY:'11'.repeat(32),WORK_EMAIL:'work@example.test'};
+const env={GMAIL_REQUEST_INTERVAL_MS:'0',APP_ORIGIN:'https://creator.example',GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'test-secret',TOKEN_ENCRYPTION_KEY:'11'.repeat(32),WORK_EMAIL:'work@example.test'};
 const sess={user:{role:'admin',open_id:'admin',tenant_key:'tenant'},csrf:'browser-binding'};
 function harness(overrides={}){const store=new Store();const calls=[];const upstream=async(url,options)=>{calls.push(url);let data;if(url.includes('/token'))data={access_token:'private-access',refresh_token:'private-refresh',scope:'https://www.googleapis.com/auth/gmail.readonly'};else if(url.endsWith('/profile'))data={emailAddress:overrides.email||env.WORK_EMAIL};else if(url.includes('threads?'))data={threads:[{id:'thread-1'}]};else data={id:'thread-1',historyId:'10',messages:[{id:'msg-1',threadId:'thread-1',labelIds:['SENT'],internalDate:'1',payload:{mimeType:'text/plain',headers:[{name:'From',value:env.WORK_EMAIL},{name:'To',value:'creator@example.test'},{name:'Subject',value:'Collaboration'}],body:{data:Buffer.from('Hello').toString('base64url')}}}]};return {ok:true,json:async()=>data};};const service=createIntegrations(store,env,upstream);return {store,service,calls};}
 async function connect(service){const start=service.start(sess);const state=new URL(start.url).searchParams.get('state');const callback=new URL(env.APP_ORIGIN+'/auth/google/callback?code=test&state='+state);await service.finish(callback,sess);return callback;}
@@ -42,3 +42,4 @@ test('automatic job follows every page, resumes a persisted cursor and deduplica
  service.disconnect(sess.user);await service.tick();assert.equal(service.status(sess.user).sync,null);
  }finally{store.close();}
 });
+
