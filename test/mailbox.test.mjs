@@ -14,3 +14,17 @@ test('mailbox lists all pages with search, filters and owner/tenant isolation wi
  assert.equal((await get('',{...actor,role:'operator',open_id:'b'})).data.total,0);
  }finally{backend.store.close();}
 });
+
+test('Agent queue excludes completed and passive suggestions; review is owner-bound, versioned and never sends',async()=>{
+ const backend=createBackend({APP_ORIGIN:'https://example.test'}),a={role:'admin',open_id:'a',tenant_key:'t'};
+ try{backend.store.write(a,'tasks',{title:'Open task',status:'open'});backend.store.write(a,'tasks',{title:'Done',status:'done'});
+ const r=backend.store.write(a,'agent_runs',{status:'suggestion',action:'decision_required',summary:'Review this'});
+ backend.store.write(a,'agent_runs',{status:'suggestion',action:'wait'});
+ async function call(path,method='GET',user=a,version=1){let result;const req={method,headers:{origin:'https://example.test','x-csrf-token':'csrf','content-type':'application/json'},async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify({version}));}};await backend.handle(req,{},new URL('https://example.test/api/'+path),{user,csrf:'csrf'},(status,data)=>result={status,data});return result;}
+ assert.equal((await call('agent_queue')).data.items.length,2);
+ assert.equal((await call('agent_runs/'+r.id+'/review','POST',{...a,role:'operator',open_id:'b'})).status,404);
+ assert.equal((await call('agent_runs/'+r.id+'/review','POST')).status,200);
+ assert.equal((await call('agent_queue')).data.items.length,1);
+ assert.equal((await call('agent_runs/'+r.id+'/review','POST')).status,409);
+ }finally{backend.store.close();}
+});
