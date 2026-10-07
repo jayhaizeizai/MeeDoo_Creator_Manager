@@ -1,5 +1,5 @@
 # Creator Operations Workflow
-Version: 0.2 — proposed MVP, not a frozen production schema.
+Version: 0.3 — proposed MVP, not a frozen production schema.
 
 ## Product scope
 Agent Inbox is the daily work queue: drafts to review, decisions needed, waiting for creator and fulfillment blockers.
@@ -44,21 +44,21 @@ State changes and policy changes record before/after values, actor, timestamp an
 Separate immutable agreed terms snapshots from editable defaults.
 
 ## Imports and integrations
-- CSV: original export has not been supplied. Field mapping remains pending. Preview changes and conflicts before import; preserve source IDs and provenance.
+- CSV: supplied export inspected: 553 rows and 15 columns. See CSV_IMPORT_SPEC.md for mappings, duplicates, owner conflicts and mixed email/notes handling. No stable source ID is present; preserve batch/row provenance.
 - Deduplication: stable source IDs and verified social/email identities; ambiguous matches require review.
 - Reimport: update source metrics without overwriting manual CRM state or accepted commercial terms.
 - Gmail: full threads including Sent, incremental sync, idempotency and verified recipient mapping. This chat's connector access is not app OAuth authorization.
 - Lark: planned login and notifications; app credentials, scopes and recipients remain to be configured.
 - Modash: CSV initially. No assumption that its API supports CRM tag writes.
 - Affiliate: store approved links, codes and rates first; revenue/click reporting requires a verified data source.
-- Visual design: original screenshot is unavailable here; left navigation, purple primary color and cards are discussion-level guidance pending the reference.
+- Visual design: supplied dashboard screenshot inspected; see UI_SPEC.md for observed shell, proposed tokens and page adaptation.
 
 ## Open decisions before implementation
 1. Treatment of the edited Danielle no-commission draft; general Level 1 reference is now 10% under the Playbook.
 2. Current product/size guide and Lookbook.
 3. Shipping eligibility, costs, duties, stock source and release process.
 4. Follow-up cadence, campaign timezone and content deadline cutoff.
-5. CSV schema and existing record identifiers.
+5. Approve CSV merge decisions, owner mapping and ambiguous number conventions; source schema is now documented.
 6. Gmail/Lark deployment, access roles and credential configuration.
 7. Technology stack and hosting.
 No automatic sending or recurring email checks are enabled by these documents.
