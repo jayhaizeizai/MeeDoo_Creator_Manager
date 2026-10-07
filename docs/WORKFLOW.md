@@ -74,8 +74,11 @@ Add agreement_templates, agreement_instances, agreement_events, agreement_accept
 Track separate clocks for production, publication/trial, attribution, order validation, organic license and paid license activation/use. Completion of content work does not close pending commission liabilities or license timers.
 Attribution implementation remains blocked on organic-code versus last-paid-click tie-breaking and code-only timing. Payment method/deadline and hold durations must be configured before issuing complete terms.
 
-## Modash email-enrichment boundary — 2026-10-07 decision
-Candidates → manual Modash workflow for email supplementation → available export/manual mapped contact data → contact-enrichment import → own-platform communication and downstream operations.
-Modash-specific mechanics are unresolved; obtain a real export sample before finalizing adapter fields. This is not a request to purchase/use its API.
-Missing email is a contact-data blocker, not a collaboration disposition. Preserve creator identity through the round trip using social identity and verified source IDs; never match only on shared agency email.
-Import creates or updates reviewed contact candidates without changing owner, conversation history, accepted terms or sending anything. See CSV_IMPORT_SPEC.md CONTACT_ENRICHMENT mode and PRODUCT_SPEC.md section 17.
+## Direct email → Sent discovery → own-platform follow-up
+Confirmed correction by Jay, 2026-10-07: there is no Modash email enrichment/import round trip. Jay sends the first outreach directly in the work mailbox.
+The application synchronizes Sent and full threads, records actual recipient addresses with source-message provenance, and associates Creator conversations with existing records.
+Uncertain identity, unrelated work messages, agency/shared emails and multiple recipients require triage; no silent merge or automatic outreach.
+After verified association, record the evidence-backed outreach milestone and evaluate the full thread's latest substantive message. Usually wait for the creator; if a later reply already exists, process that reply.
+A sent message is not proof of delivery, creator identity or acceptance. Bounces produce a separate contact blocker.
+Original CSV import remains; missing email can be filled from later verified conversation association without resetting owner, terms or history.
+See PRODUCT_SPEC.md SENT-01. Gmail authorization and application sync implementation remain prerequisites; no background task is enabled by this document.
