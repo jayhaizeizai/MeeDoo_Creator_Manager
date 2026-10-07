@@ -25,3 +25,20 @@ test('full-thread synchronization is idempotent, unclassified and never sends',a
 test('attachment or HTML-only messages cannot be marked complete for AI',()=>{
  const h=harness();try{const raw={id:'t',messages:[{id:'m',payload:{mimeType:'multipart/mixed',parts:[{mimeType:'text/plain',body:{data:Buffer.from('text').toString('base64url')}},{filename:'terms.pdf',body:{attachmentId:'attachment'}}]}}]};assert.equal(h.service.normalizeThread(raw).complete,false);assert.equal(h.service.normalizeThread({id:'t',messages:[{id:'m',payload:{mimeType:'text/html',body:{data:'eA'}}}]}).complete,false);}finally{h.store.close();}
 });
+
+test('automatic job follows every page, resumes a persisted cursor and deduplicates refreshes',async()=>{
+ const store=new Store();let failPage=false;
+ const upstream=async url=>{let data;
+ if(url.includes('/token'))data={access_token:'access',refresh_token:'refresh',scope:'https://www.googleapis.com/auth/gmail.readonly'};
+ else if(url.endsWith('/profile'))data={emailAddress:env.WORK_EMAIL};
+ else if(url.includes('threads?')){assert.ok(!new URL(url).searchParams.get('q').includes('after:'));const second=new URL(url).searchParams.get('pageToken');if(second&&failPage)return {ok:false};data=second?{threads:[{id:'two'}]}:{threads:[{id:'one'}],nextPageToken:'cursor'};}
+ else {const id=url.includes('/two?')?'two':'one';data={id,messages:[{id:'m-'+id,internalDate:'1',payload:{mimeType:'text/plain',headers:[],body:{data:'SGVsbG8'}}}]};}
+ return {ok:true,json:async()=>data};};
+ let service=createIntegrations(store,env,upstream);
+ try{await connect(service);await service.tick();assert.equal(store.list('mail_threads','tenant').length,1);assert.equal(service.status(sess.user).sync.state,'queued');
+ service=createIntegrations(store,env,upstream);failPage=true;await service.tick();assert.equal(service.status(sess.user).sync.state,'error');assert.equal(store.db.prepare('SELECT page_token FROM mail_sync').get().page_token,'cursor');
+ failPage=false;service.queue(sess.user);await service.tick();assert.equal(store.list('mail_threads','tenant').length,2);assert.equal(service.status(sess.user).sync.state,'idle');assert.equal(service.status(sess.user).sync.count,2);
+ service.queue(sess.user);await service.tick();await service.tick();assert.equal(store.list('mail_threads','tenant').length,2);assert.ok(store.list('mail_threads','tenant').every(r=>r.version===1));
+ service.disconnect(sess.user);await service.tick();assert.equal(service.status(sess.user).sync,null);
+ }finally{store.close();}
+});

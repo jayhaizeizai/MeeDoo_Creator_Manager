@@ -70,7 +70,8 @@ export function createApp(env=process.env, upstream=fetch){
    const body=await readFile(new URL('./public/'+asset[0],import.meta.url));res.writeHead(200,{'Content-Type':asset[1]+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:body);
   }catch{send(500,{error:'internal_error'});}
  });
- server.on('close',()=>backend.store.close());
+ server.on('listening',()=>backend.integrations.startWorker());
+ server.on('close',()=>{backend.integrations.stopWorker(()=>backend.store.close());});
  return server;
 }
 if(process.argv[1]===fileURLToPath(import.meta.url))createApp().listen(Number(process.env.PORT||4317),'127.0.0.1',()=>console.log('MeeDoo listening on loopback'));

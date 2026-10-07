@@ -31,6 +31,7 @@ See deploy/DEPLOYMENT.md. Use the existing dedicated systemd service and nginx v
 Start with [PRD](docs/PRODUCT_SPEC.md), [UI](docs/UI_SPEC.md), [Agent](docs/AGENT_SYSTEM.md), [Clickwrap](docs/CLICKWRAP_SPEC.md) and [CSV mapping](docs/CSV_IMPORT_SPEC.md).
 
 ## Google and OpenAI setup
-Google redirect: https://creator.meedoo.fun/auth/google/callback. Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, WORK_EMAIL and TOKEN_ENCRYPTION_KEY (32 random bytes, 64 hex characters) only in the restricted server environment. Enable Gmail API and authorize from Settings. The initial integration uses read-only scope, manual date-bounded 20-thread batches, explicit classification and no sending. Tokens are encrypted outside audit records.
+Google redirect: https://creator.meedoo.fun/auth/google/callback. Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, WORK_EMAIL and TOKEN_ENCRYPTION_KEY (32 random bytes, 64 hex characters) only in the restricted server environment. Enable Gmail API and authorize from Settings. The initial integration uses read-only scope, automatic resumable full-history synchronization (excluding Spam/Trash), five-minute refresh scans, explicit classification and no sending. Tokens are encrypted outside audit records.
 
 Configure OPENAI_API_KEY and OPENAI_MODEL only on the server. Linked complete plain-text threads can generate suggestions using Responses API, store=false, approved policies and no tools. Incomplete/attachment messages cannot be analyzed. Real provider validation awaits credentials. See deploy/backup.mjs for consistent database backups; off-host backups remain to be configured.
+

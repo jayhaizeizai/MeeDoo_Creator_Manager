@@ -32,3 +32,7 @@ One Node process; SQLite and sessions are not configured for horizontal scaling.
 
 ## Restore
 Stop only meedoo-creator. Preserve the current database and its WAL/SHM files in a restricted directory. Copy a verified backup to DB_PATH, owned by meedoo-creator with mode 0600, then start only this application. Do not modify the shared PostgreSQL service. Practice restore against a separate temporary path before production recovery.
+
+## Automatic mailbox (2026-10-07)
+Google connection now queues a persistent, server-side full-history job. Existing connections are queued on startup. The worker traverses all pages, checkpoints each page, retries with backoff and repeats a scan five minutes after completion. Closing a browser does not stop it. Identical provider content is not duplicated; human classifications and links are retained. Spam/Trash are excluded; deleting mail in Gmail does not purge the local archive. HTML-only messages and attachments still require manual review.
+Inbox shows paginated summaries (50 visible rows per page, no ingestion cap), participant, message count, actual collaboration status, subject, preview and date, with search and inbox/unread/classification filters. No fabricated CRM statuses, external avatar lookups or sending controls. Gmail history-based incremental optimization remains future work.
