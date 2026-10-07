@@ -1,0 +1,19 @@
+[Unit]
+Description=MeeDoo Creator Manager
+After=network.target
+[Service]
+Type=simple
+User=meedoo-creator
+Group=meedoo-creator
+WorkingDirectory=/opt/meedoo-creator/current
+EnvironmentFile=/etc/meedoo-creator.env
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+[Install]
+WantedBy=multi-user.target
