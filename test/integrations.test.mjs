@@ -43,3 +43,13 @@ test('automatic job follows every page, resumes a persisted cursor and deduplica
  }finally{store.close();}
 });
 
+
+test('HTML alternatives and declared charsets are retained without mixing or enabling AI on HTML-only mail',()=>{
+ const h=harness();try{const msg={id:'m',payload:{mimeType:'multipart/alternative',parts:[{mimeType:'text/plain',headers:[{name:'Content-Type',value:'text/plain; charset=iso-8859-1'}],body:{data:Buffer.from([99,97,102,233]).toString('base64url')}},{mimeType:'text/html',body:{data:Buffer.from('<p><b>café</b></p>').toString('base64url')}}]}};
+ const result=h.service.normalizeThread({id:'t',messages:[msg]});assert.equal(result.messages[0].body,'café');assert.equal(result.messages[0].html_body,'<p><b>café</b></p>');assert.equal(result.render_version,2);assert.equal(result.complete,true);
+ msg.payload.parts.shift();assert.equal(h.service.normalizeThread({id:'t',messages:[msg]}).complete,false);
+ }finally{h.store.close();}
+});
+test('unchanged provider content is reprocessed once when the rendering format changes',async()=>{
+ const h=harness();try{await connect(h.service);await h.service.sync(sess.user);h.store.db.prepare("UPDATE records SET data=json_remove(data,'$.render_version') WHERE kind='mail_threads'").run();await h.service.sync(sess.user);assert.equal(h.store.list('mail_threads','tenant')[0].render_version,2);assert.equal(h.store.list('mail_threads','tenant')[0].version,2);await h.service.sync(sess.user);assert.equal(h.store.list('mail_threads','tenant')[0].version,2);}finally{h.store.close();}
+});
