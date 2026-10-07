@@ -92,3 +92,14 @@ Do not auto-fetch profiles, create contacts in third-party apps, send email or u
 - Missing conversation history never becomes CONTACTED/AGREED.
 - Reimport does not duplicate candidates or overwrite manual workflow data.
 - The raw file remains unchanged; normalization is traceable and reversible.
+
+## Modash enrichment round trip — confirmed workflow
+Jay confirmed on 2026-10-07: candidates go to Modash first for email enrichment; MeeDoo Creator Manager owns subsequent communication and collaboration.
+Exact Modash import/enrichment/export mechanics remain undecided and must be verified with a real exported sample. Do not claim specific API or export support.
+Support a separate CONTACT_ENRICHMENT import mode. Match platform + canonical handle and observed stable source IDs when available, retain internal creator IDs, and preview unmatched/conflicting rows.
+A new email is a sourced contact candidate, not proof of identity/deliverability or permission to send. Preserve previous addresses and make selection of the primary recipient explicit. Agency email sharing must not merge creators.
+Record source=Modash (or manual enrichment), batch, imported_at, raw reference, recipient role and verification status. Do not invent the source discovery date.
+Update only approved contact/profile fields; never reset stage, owner, sent history, agreement or shipping state. Exact reimport remains idempotent.
+Provide a missing-contact filter and minimal selected-candidate export for manual processing; output only approved identifiers/profile URLs and useful non-sensitive matching fields, not contracts/private conversations/shipping data.
+If email export is unavailable, allow manual completion of the same mapping template. No automated scraping, guessed addresses, auto-sending or Modash API dependency is implied.
+Acceptance: an existing no-email creator gets a contact candidate without a duplicate record; conflicting contact data queues review; import cannot itself mark CONTACTED or send mail.
