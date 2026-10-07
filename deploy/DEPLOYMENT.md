@@ -1,5 +1,5 @@
 # Deployment handoff — creator.meedoo.fun
-Status: not deployed; SSH to the supplied host returned Network is unreachable before authentication. No changes were made to the server. DNS, installed proxy, free ports and certificate status have not been verified.
+Status: deployed on 2026-10-07. HTTPS and real Lark sign-in/logout verified. The persistent backend foundation is deployed; see docs/BACKEND_STATUS.md for remaining product scope. Existing backstage and gifts services and PostgreSQL remained running unchanged. Current release path is resolved through /opt/meedoo-creator/current.
 
 ## Safe installation sequence
 1. Inspect OS, current listeners (especially 80,443,4317), systemd/Docker workloads, nginx/apache/caddy config and existing certificates. Do not install a competing proxy, replace global config or stop other services.
@@ -17,4 +17,9 @@ Status: not deployed; SSH to the supplied host returned Network is unreachable b
 Restore the previous application symlink and restart only meedoo-creator. Restore only this virtual host's previous config and validate before proxy reload. Do not delete shared certificates or global proxy files. First installation rollback removes only this app's route/unit, leaving all other services intact.
 
 ## Outstanding inputs
-Lark App ID and App Secret, tenant key, permitted member open IDs and app login availability. Callback URL: https://creator.meedoo.fun/auth/lark/callback. Real login is not validated until these inputs and HTTPS are present.
+Lark is configured and real login is verified. Pending Google OAuth web client and OpenAI API configuration. Google callback: https://creator.meedoo.fun/auth/google/callback. Work mailbox: jay@meedoo.group. See docs/BACKEND_STATUS.md for verification and product gaps.
+
+## Persistent backend deployment
+Set DB_PATH=/var/lib/meedoo-creator/workspace.sqlite and explicit LARK_ADMIN_OPEN_IDS in the root-only environment file. The unit StateDirectory provides a private writable path. Install the dedicated backup service/timer only after testing deploy/backup.mjs against the deployed Node runtime. Current daily backups are local and integrity-checked; off-host recovery and retention remain unconfigured. Preserve the database and encryption key through releases.
+
+The nginx callback logging exception must cover both /auth/lark/callback and /auth/google/callback, including error logging. Validate before reloading nginx. Never log provider codes, tokens or secrets.
