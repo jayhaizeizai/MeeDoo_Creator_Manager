@@ -1,15 +1,15 @@
 # Creator Operations Workflow
-Version: 0.1 — proposed MVP, not a frozen production schema.
+Version: 0.2 — proposed MVP, not a frozen production schema.
 
 ## Product scope
 Agent Inbox is the daily work queue: drafts to review, decisions needed, waiting for creator and fulfillment blockers.
-Supporting views: Dashboard, Creators, Pipeline, Shipping, Knowledge/Policies and Settings.
+Supporting views: Dashboard, Creators, Pipeline, Shipping, Agreements/Clickwrap, Content Review, Knowledge/Policies and Settings.
 A creator can have multiple collaborations. Store people, social accounts and conversations separately from campaign-specific terms, products, shipments and deliverables.
 
 ## State and next action
 Use collaboration stage plus independent blockers rather than a single overloaded status.
 Proposed stages:
-NEW_LEAD → CONTACTED → REPLIED → INTERESTED → LOOKBOOK_SENT → LOOK_SELECTED → TERMS_SENT → AGREED → READY_TO_SHIP → SHIPPED → DELIVERED → CONTENT_DUE → CONTENT_RECEIVED → COMPLETED.
+NEW_LEAD → CONTACTED → REPLIED → INTERESTED → LOOKBOOK_SENT → LOOK_SELECTED → TERMS_SENT → AGREED → READY_TO_SHIP → SHIPPED → DELIVERED → CONTENT_DUE → CONTENT_RECEIVED → CONTENT_APPROVED → PUBLISHED → PERFORMANCE_REVIEW → RETURN_VALIDATION → COMPLETED.
 Stages may be skipped when evidence supports it; message order varies.
 PAID_ONLY, DECLINED, NO_RESPONSE, FOLLOW_UP_LATER and BOUNCED are dispositions, not shipping milestones.
 Missing size, missing address, fit issue, stock issue and missing agreement are independent blockers that can coexist.
@@ -54,7 +54,7 @@ Separate immutable agreed terms snapshots from editable defaults.
 - Visual design: original screenshot is unavailable here; left navigation, purple primary color and cards are discussion-level guidance pending the reference.
 
 ## Open decisions before implementation
-1. Default commission and treatment of the edited Danielle no-commission draft.
+1. Treatment of the edited Danielle no-commission draft; general Level 1 reference is now 10% under the Playbook.
 2. Current product/size guide and Lookbook.
 3. Shipping eligibility, costs, duties, stock source and release process.
 4. Follow-up cadence, campaign timezone and content deadline cutoff.
@@ -62,3 +62,14 @@ Separate immutable agreed terms snapshots from editable defaults.
 6. Gmail/Lark deployment, access roles and credential configuration.
 7. Technology stack and hosting.
 No automatic sending or recurring email checks are enabled by these documents.
+
+## Required Clickwrap and Playbook extensions
+See [CLICKWRAP_SPEC.md](CLICKWRAP_SPEC.md) for the required creator agreement page, verification, immutable terms, acceptance receipt and evidence export.
+AGREED requires authoritative acceptance of the issued version. Verified email acceptance remains a separate supported source. Stock and shipping gates remain independent.
+Before issuing terms verify products and measurements. Before shipping record acceptance. After delivery collect fit/movement, initial quality and improvement feedback for both garments.
+Uploaded content enters review (target within 24 hours), with one reasonable correction. Written approval precedes the organic tracking package and publication. Record live URL and disclosure/CTA evidence.
+Track Day-15 provisional performance separately from rolling return-adjusted validation. Later eligible conversions remain open after the trial ends.
+Store level memberships and effective rates independently from pipeline stages. Level 2 is 30 days/12% and two activations; Level 3 is a 90-day/15% pilot with agreed monthly activations. Promotion requires review and new terms.
+Add agreement_templates, agreement_instances, agreement_events, agreement_acceptances, receipt_exports, content_reviews, level_memberships, tracking_links, attributed_orders, commission_ledger and content_licenses to the proposed model.
+Track separate clocks for production, publication/trial, attribution, order validation, organic license and paid license activation/use. Completion of content work does not close pending commission liabilities or license timers.
+Attribution implementation remains blocked on organic-code versus last-paid-click tie-breaking and code-only timing. Payment method/deadline and hold durations must be configured before issuing complete terms.
