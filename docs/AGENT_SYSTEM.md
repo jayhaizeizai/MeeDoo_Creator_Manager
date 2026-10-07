@@ -1,5 +1,5 @@
 # MeeDoo Creator Partnership Agent
-Version: 0.1 — implementation specification draft.
+Version: 0.2 — implementation specification draft.
 
 ## Purpose
 Read creator conversations, extract evidence-backed facts, recommend next actions and prepare most routine replies. Jay reviews and confirms outbound mail. Questions beyond approved knowledge go to Jay with a concise recommendation.
@@ -19,7 +19,7 @@ Read related verified threads when necessary; never merge people solely by displ
 ## Review levels
 - Green: routine replies supported by approved facts and terms: interest, Lookbook requests, size/address collection, standard terms, simple decline, paid-only acknowledgement.
 - Yellow: request to vary deliverables, timing, products, commission or shipping. Draft may acknowledge and ask questions but must not grant an unapproved exception.
-- Red: missing policy decisions, paid commitments, contracts, special rights, exclusivity, legal disputes, injury or compensation. Summarize and recommend; do not invent a binding answer.
+- Red: missing policy decisions, unapproved paid commitments, contract changes, rights outside accepted scope, exclusivity, legal disputes, injury or compensation. Summarize and recommend; do not invent a binding answer.
 Missing material facts override any numerical confidence score.
 
 ## Approval and sending
@@ -55,7 +55,15 @@ Do not report a calibrated probability unless one has actually been validated.
 - Terms drafted but unsent: state remains unchanged.
 - Size/address supplied but terms not agreed: not ready to ship.
 - Delivered but fit not confirmed: no five-day content clock.
-- Affiliate cookie window unknown: request policy decision; do not invent 30 days.
+- Level 1 attribution: use 15 days from the first valid click, without reset. Undefined policies for other levels require a decision.
 - Danielle draft reviewed: preserve its no-commission wording unless Jay explicitly changes it.
 - New message arrives during approval: invalidate draft approval.
 - Send result uncertain: reconcile before retrying.
+
+## Playbook and agreement integration
+Use AGENT_CONTEXT.md v0.2 and CLICKWRAP_SPEC.md. The Playbook includes limited MeeDoo-account paid use; explaining an approved standard license is routine, expanding it is not.
+Never infer acceptance from opening a link, interest or a draft. Read the server acceptance record or verified email acceptance linked to exact terms. Agent cannot click acceptance for the creator.
+Block invitation issuance when material placeholders remain. Do not silently replace Danielle's edited no-commission draft; flag the mismatch with current Level 1 defaults.
+Do not activate new levels automatically. Level 2/3 require their own acceptance and effective dates.
+Distinguish fit-based production deadlines, publication-based trial dates, per-customer attribution, per-order return holds and content-license clocks.
+Human approval remains required for outbound email and DM; the Playbook cadence does not enable an automation in this chat.
