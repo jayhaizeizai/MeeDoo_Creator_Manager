@@ -47,3 +47,9 @@
 ## 验证边界
 
 自动分析及发送回归测试使用虚构邮件与模拟服务，不向真实联系人发送测试邮件。自动检查的实际 AI 调用会在生产定时流程内使用已配置的服务；失败会显示卡片并在下一小时重试。
+
+## Reply identity checks
+AI context explicitly identifies Jay Lee / MeeDoo as the sender and labels each message inbound or outbound. Actionable decision-required mail still needs a cautious draft. Obvious reversed greetings/signatures and missing actionable drafts trigger one regeneration; invalid results are not saved as sendable drafts. Existing unedited reversed AI suggestions are cleared and queued for repair; manual edits and sent/uncertain sends are preserved.
+
+## CSV preview selection
+The preview now recommends creation for valid new rows, association for a single unambiguous existing match, and skipping for rows with problems or multiple matches. Counts and bulk selection controls remain visible at the top. Nothing is imported until the user submits the selected rows. Duplicate email addresses within the CSV are flagged. Files previously committed with every row skipped can be previewed again.
