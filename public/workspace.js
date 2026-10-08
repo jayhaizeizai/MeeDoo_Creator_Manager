@@ -79,7 +79,7 @@ export function showWorkspace({page,session,csrf,toast}){
   const [status,threads]=await Promise.all([api('integrations'),api('mail_threads?offset='+mailOffset+'&q='+encodeURIComponent(mailQuery)+'&filter='+mailFilter)]);if(!alive()||request!==mailRequest)return;
   if(mailOffset&&mailOffset>=threads.total){mailOffset=0;return mailbox();}
   const job=status.sync,working=job&&['queued','running'].includes(job.state);
-  const syncText=!status.gmail_connected?'尚未连接工作邮箱':job?.state==='error'?job.error:working?`正在后台同步全部历史邮件 · 本轮已读取 ${job.count} 个会话`:job?.completed_at?`全部历史邮件已同步 · ${new Date(job.completed_at).toLocaleString()} · 自动检查新邮件`:'已连接 · 正在准备自动同步';
+  const syncText=!status.gmail_connected?'尚未连接工作邮箱':job?.state==='error'?job.error:working?(job.mode==='incremental'?`正在检查邮件更新 · 本轮已读取 ${job.count} 个变更会话`:`首次同步历史邮件 · 已读取 ${job.count} 个会话`):job?.completed_at?`已同步 · ${new Date(job.completed_at).toLocaleString()} · 每分钟自动检查更新`:'已连接 · 正在准备自动同步';
   const stateLabels={NEW_LEAD:'新线索',REPLIED:'已回复',INTERESTED:'有意向',PAID_ONLY:'仅付费合作',DECLINED:'已婉拒',NO_RESPONSE:'暂无回复',FOLLOW_UP_LATER:'稍后跟进',BOUNCED:'邮件退回'};
   const contactName=t=>(t.contact||'未知联系人').replace(/<[^>]*>/g,'').replace(/^"|"$/g,'').trim()||t.contact;
   const focused=document.activeElement?.id==='mail-search';const selection=focused?document.activeElement.selectionStart:null;

@@ -30,7 +30,8 @@ test('automatic job follows every page, resumes a persisted cursor and deduplica
  const store=new Store();let failPage=false;
  const upstream=async url=>{let data;
  if(url.includes('/token'))data={access_token:'access',refresh_token:'refresh',scope:'https://www.googleapis.com/auth/gmail.readonly'};
- else if(url.endsWith('/profile'))data={emailAddress:env.WORK_EMAIL};
+ else if(url.endsWith('/profile'))data={emailAddress:env.WORK_EMAIL,historyId:'10'};
+ else if(url.includes('history?'))data={historyId:'11'};
  else if(url.includes('threads?')){assert.ok(!new URL(url).searchParams.get('q').includes('after:'));const second=new URL(url).searchParams.get('pageToken');if(second&&failPage)return {ok:false};data=second?{threads:[{id:'two'}]}:{threads:[{id:'one'}],nextPageToken:'cursor'};}
  else {const id=url.includes('/two?')?'two':'one';data={id,messages:[{id:'m-'+id,internalDate:'1',payload:{mimeType:'text/plain',headers:[],body:{data:'SGVsbG8'}}}]};}
  return {ok:true,json:async()=>data};};
