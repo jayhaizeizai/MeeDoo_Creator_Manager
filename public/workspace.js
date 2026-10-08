@@ -91,13 +91,25 @@ export function showWorkspace({page,session,csrf,toast}){
   mailTimer=setTimeout(()=>{if(alive()&&!document.querySelector('dialog[open]')&&document.activeElement?.id!=='mail-search')run(mailbox);else if(alive())mailTimer=setTimeout(()=>{if(alive())run(mailbox);},10000);},working?4000:15000);
   target.querySelectorAll('[data-thread]').forEach(b=>b.onclick=()=>run(async()=>{
    const thread=await api('mail_threads/'+b.dataset.thread),collabs=(await api('collaborations?limit=100')).items;
-   const modal=dialog(thread.subject||'邮件会话','<div class="email-thread"></div>'+`<form><label>关联合作<select name="collaboration_id" required><option value="">请选择；多人收件 / 代理身份请先人工核对</option>${collabs.map(c=>`<option value="${c.id}" ${thread.collaboration_id===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label><button class="primary" type="submit">确认关联</button><p role="alert"></p></form><button class="secondary" id="unrelated">标记为非 Creator 邮件</button><button class="secondary" id="analyze-mail" ${!status.ai_configured||!thread.complete||thread.classification!=='creator'?'disabled':''}>用 OpenAI 分析并准备建议</button><div id="analysis-result"></div>`);
+   const modal=dialog(thread.subject||'邮件会话','<div class="email-thread"></div>'+`<form><label>关联合作<select name="collaboration_id" required><option value="">请选择；多人收件 / 代理身份请先人工核对</option>${collabs.map(c=>`<option value="${c.id}" ${thread.collaboration_id===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label><button class="primary" type="submit">确认关联</button><p role="alert"></p></form><button class="secondary" id="unrelated">标记为非 Creator 邮件</button><button class="secondary" id="analyze-mail" ${!status.ai_configured||!thread.complete?'disabled':''}>AI 起草回复</button><div id="analysis-result"></div>`);
    modal.classList.add('mail-reader');mountThread(modal.querySelector('.email-thread'),thread.messages);
    if(!thread.complete){const warning=document.createElement('p');warning.className='notice';warning.textContent='此会话含未解析正文或附件，请在原邮箱核对完整内容；当前不能交给 AI 分析。';modal.querySelector('form').before(warning);}
    let version=thread.version;
    modal.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await api('mail_threads/'+thread.id+'/link',{method:'POST',body:JSON.stringify({collaboration_id:new FormData(e.target).get('collaboration_id'),version})});version=r.version;modal.querySelector('#analyze-mail').disabled=!status.ai_configured||!thread.complete;toast('已关联');}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}};
    modal.querySelector('#unrelated').onclick=async()=>{try{await api('mail_threads/'+thread.id+'/link',{method:'POST',body:JSON.stringify({classification:'unrelated',version})});modal.close();await mailbox();}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}};
-   modal.querySelector('#analyze-mail').onclick=async e=>{e.target.disabled=true;try{const r=await api('mail_threads/'+thread.id+'/analyze',{method:'POST',body:'{}'});modal.querySelector('#analysis-result').innerHTML=`<h3>AI 建议 · 尚未发送</h3><p>${esc(r.summary)}</p><pre>${esc(r.draft)}</pre><p>待确认：${esc(r.unknowns.join('；'))}</p><p>依据：${esc(r.source_ids.join('，'))}</p>`;}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}finally{e.target.disabled=false;}};
+   const results=modal.querySelector('#analysis-result');
+   function showDraft(r){
+    const box=document.createElement('section');box.className='ai-reply';
+    box.innerHTML=`<h3>AI 回复草稿 · 尚未发送</h3><p>${esc(r.summary)}</p><label>回复内容<textarea rows="10" aria-label="回复草稿">${esc(r.draft)}</textarea></label><p>待确认：${esc(r.unknowns.join('；')||'请核对内容后再使用')}</p><div class="toolbar"><button class="primary" data-save>保存修改</button><button class="secondary" data-copy>复制回复</button></div><p role="status"></p>`;
+    const editor=box.querySelector('textarea'),message=box.querySelector('[role="status"]');
+    box.querySelector('[data-save]').onclick=async e=>{e.target.disabled=true;try{r=await api('agent_runs/'+r.id+'/draft',{method:'POST',body:JSON.stringify({draft:editor.value,version:r.version})});message.textContent='草稿已保存，尚未发送';}catch(e){message.textContent=e.message;}finally{e.target.disabled=false;}};
+    box.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(editor.value);message.textContent='已复制，尚未发送';}catch{message.textContent='复制未成功，请选中回复内容手动复制';}};
+    results.prepend(box);
+   }
+   if(!status.ai_configured)results.textContent='AI 服务尚未配置，连接后可起草回复。';
+   for(const r of (await api('agent_runs?thread_id='+thread.id)).items.slice().reverse())showDraft(r);
+   modal.querySelector('#analyze-mail').onclick=async e=>{const button=e.target;button.disabled=true;button.textContent='正在起草…';try{const r=await api('mail_threads/'+thread.id+'/reply',{method:'POST',body:'{}'});showDraft(r);}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}finally{button.disabled=false;button.textContent='重新起草（保留已有草稿）';}};
+
   }));
  }
  async function agentQueue(){
