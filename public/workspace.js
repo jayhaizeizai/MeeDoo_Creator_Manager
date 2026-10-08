@@ -1,3 +1,4 @@
+import {mountMailLibrary} from './mail-library.js';
 import {mountThread} from './mail-view.mjs';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const definitions={
@@ -67,9 +68,10 @@ export function showWorkspace({page,session,csrf,toast}){
  async function connections(){
   await home();if(!alive())return;const s=await api('integrations');
   if(!alive())return;target.querySelectorAll('.setting-row').forEach(row=>{const key=row.querySelector('strong')?.textContent;if(key==='Gmail / Sent')row.querySelector('span').textContent=s.gmail_connected?'已连接 · 自动同步':'未授权';if(key==='AI 服务')row.querySelector('span').textContent=s.ai_configured?'已配置':'未配置';});
-  const panel=document.createElement('div');panel.className='card info-card';panel.innerHTML=`<h2>邮箱与 AI 接入</h2><p>工作邮箱：${esc(s.work_email||'未配置')} · Gmail：${s.gmail_connected?(s.send_authorized?'已授权读取和发送':'已连接，仅有读取权限，请重新授权发送'):s.google_configured?'等待授权':'等待管理员配置 Google OAuth'} · AI：${s.ai_configured?esc(s.ai_model||'已配置'):'等待服务器配置'}</p><p>Google 重定向地址：<code>${esc(s.callback)}</code></p>${session.role==='admin'?button('connect-google',s.gmail_connected?'重新授权 Google 邮箱（读取＋发送）':'连接 Google 工作邮箱（读取＋发送）')+button('disconnect-google','断开邮箱连接'):''}<p>回复须先审核收件人和正文，再明确确认发送。AI 不会自动发送。</p><p role="alert"></p>`;target.append(panel);
+  const panel=document.createElement('div');panel.className='card info-card';panel.innerHTML=`<h2>邮箱与 AI 接入</h2><p>工作邮箱：${esc(s.work_email||'未配置')} · Gmail：${s.gmail_connected?(s.send_authorized?'已授权读取和发送':'已连接，仅有读取权限，请重新授权发送'):s.google_configured?'等待授权':'等待管理员配置 Google OAuth'} · AI：${s.ai_configured?esc(s.ai_model||'已配置'):'等待服务器配置'}</p><p>Google 重定向地址：<code>${esc(s.callback)}</code></p>${session.role==='admin'?button('connect-google',s.gmail_connected?'重新授权 Google 邮箱（读取＋发送）':'连接 Google 工作邮箱（读取＋发送）')+button('disconnect-google','断开邮箱连接'):''}<p>AI 只起草回复，点击发送后才会发出。</p><p role="alert"></p>`;target.append(panel);
   const connect=panel.querySelector('#connect-google');if(connect){connect.disabled=!s.google_configured;connect.onclick=async()=>{try{const r=await api('integrations/google/start',{method:'POST',body:'{}'});location.assign(r.url);}catch(e){panel.querySelector('[role="alert"]').textContent=e.message;}};}
   const disconnect=panel.querySelector('#disconnect-google');if(disconnect){disconnect.disabled=!s.gmail_connected;disconnect.onclick=async()=>{try{await api('integrations/google/disconnect',{method:'POST',body:'{}'});toast('应用已移除邮箱凭证；可在 Google 账号中撤销授权');await connections();}catch(e){panel.querySelector('[role="alert"]').textContent=e.message;}};}
+  if(session.role==='admin')await mountMailLibrary(target,api);
  }
  let mailOffset=0,mailQuery='',mailFilter='all',mailTimer=null,mailRequest=0;
  async function mailbox(){
@@ -104,45 +106,50 @@ export function showWorkspace({page,session,csrf,toast}){
    sidebar.innerHTML=`<section><span class="detail-eyebrow">联系人</span><h3>${esc(person.replace(/<[^>]*>/g,'').trim()||person)}</h3><p>${thread.messages.length} 封邮件</p></section><section class="detail-relationship"><h4>合作关联</h4></section><section><h4>邮箱与参与人</h4><p>${esc(person)}</p><p>工作邮箱：${esc(status.work_email)}</p></section><section><h4>当前会话</h4><div class="detail-conversation">${esc(thread.subject||'（无主题）')}</div></section>`;
    sidebar.querySelector('.detail-relationship').append(modal.querySelector('form'),modal.querySelector('#unrelated'));
    const main=document.createElement('div');main.className='mail-detail-main';main.append(modal.querySelector('.email-thread'));
-   const reply=document.createElement('section');reply.className='mail-reply-panel';const replyTitle=document.createElement('h3');replyTitle.textContent='回复';reply.append(replyTitle);const warning=modal.querySelector('.notice');if(warning)reply.append(warning);const feedback=document.createElement('p');feedback.id='reply-feedback';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');reply.append(modal.querySelector('#analyze-mail'),feedback,modal.querySelector('#analysis-result'));main.append(reply);layout.append(sidebar,main);modal.append(layout);
+   const reply=document.createElement('section');reply.className='mail-reply-panel';const replyTitle=document.createElement('h3');replyTitle.textContent='回复';reply.append(replyTitle);const warning=modal.querySelector('.notice');warning?.remove();const feedback=document.createElement('p');feedback.id='reply-feedback';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');reply.append(modal.querySelector('#analyze-mail'),feedback,modal.querySelector('#analysis-result'));main.append(reply);layout.append(sidebar,main);modal.append(layout);
    let version=thread.version;
    modal.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await api('mail_threads/'+thread.id+'/link',{method:'POST',body:JSON.stringify({collaboration_id:new FormData(e.target).get('collaboration_id'),version})});version=r.version;modal.querySelector('#analyze-mail').disabled=!status.ai_configured||!thread.body_ready;toast('已关联');}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}};
    modal.querySelector('#unrelated').onclick=async()=>{try{await api('mail_threads/'+thread.id+'/link',{method:'POST',body:JSON.stringify({classification:'unrelated',version})});modal.close();await mailbox();}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}};
    const results=modal.querySelector('#analysis-result');
-   let activeDraft=null,dirty=false;
-   results.innerHTML='<section class="ai-reply"><h3>回复草稿 · 尚未发送</h3><label>回复内容<textarea rows="10" aria-label="回复草稿" placeholder="在这里填写回复，或点击 AI 起草回复…"></textarea></label><div class="draft-context"></div><div class="toolbar"><button class="primary" data-save>保存草稿</button><button class="secondary" data-copy>复制回复</button><button class="primary" data-send>审核并发送</button></div><p>发送前会再次展示收件人和最终正文，仅回复一位收件人，不抄送、不附带文件。</p><p role="status" class="draft-save-status"></p></section><details class="draft-history"><summary>历史草稿</summary><div></div></details>';
+   let activeDraft=null,dirty=false,recipient=null,attachments=[];
+   results.innerHTML='<section class="ai-reply"><div class="reply-recipient">收件人：<span data-recipient>正在读取…</span><span data-draft-state></span></div><textarea rows="12" aria-label="回复草稿" placeholder="填写回复，或使用 AI 起草…"></textarea><div class="draft-context" hidden></div><div data-outgoing-attachments></div><select data-use-template aria-label="使用邮件模板"><option value="">使用模板…</option></select><select data-add-attachment aria-label="添加品牌附件"><option value="">添加附件…</option></select><div class="toolbar"><button class="secondary" data-save>保存草稿</button><button class="primary" data-send disabled>发送</button></div><p role="status" class="draft-save-status"></p></section><details class="draft-history"><summary>历史草稿</summary><div></div></details>';
    const editor=results.querySelector('textarea'),saveStatus=results.querySelector('.draft-save-status'),context=results.querySelector('.draft-context'),history=results.querySelector('.draft-history>div');
    const sendButton=results.querySelector('[data-send]');
-   sendButton.disabled=session.role!=='admin';
+   sendButton.disabled=true;
+   async function loadRecipient(){try{recipient=await api('mail_threads/'+thread.id+'/recipient');results.querySelector('[data-recipient]').textContent=recipient.to;sendButton.disabled=session.role!=='admin'||activeDraft?.status==='sent';}catch(e){results.querySelector('[data-recipient]').textContent='暂时无法读取';saveStatus.textContent=e.message;}}
+   void loadRecipient();
+   const attachmentBox=results.querySelector('[data-outgoing-attachments]');
+   function drawAttachments(){attachmentBox.innerHTML=attachments.map(a=>`<span class="outgoing-file">📎 ${esc(a.name)} <button type="button" data-remove-attachment="${a.id}" aria-label="移除 ${esc(a.name)}" ${activeDraft?.status==='sent'?'disabled':''}>×</button></span>`).join('');attachmentBox.querySelectorAll('button').forEach(b=>b.onclick=()=>{attachments=attachments.filter(a=>a.id!==b.dataset.removeAttachment);dirty=true;drawAttachments();});}
+   if(session.role==='admin')api('mail_library').then(library=>{
+    const templates=results.querySelector('[data-use-template]'),assets=results.querySelector('[data-add-attachment]');
+    templates.innerHTML='<option value="">使用模板…</option>'+library.templates.filter(t=>t.enabled).map(t=>`<option value="${t.id}">${esc(t.title)}</option>`).join('');
+    assets.innerHTML='<option value="">添加附件…</option>'+library.assets.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    templates.onchange=()=>{const t=library.templates.find(t=>t.id===templates.value);if(!t)return;if(t.attachments.some(a=>!library.assets.some(x=>x.id===a.id))){saveStatus.textContent='模板中有已停用的附件，请先到设置更换';templates.value='';return;}editor.value=t.body.replaceAll('{{creator_name}}',person.replace(/<[^>]*>/g,'').trim()||'there');attachments=t.attachments.filter(a=>library.assets.some(x=>x.id===a.id));dirty=true;drawAttachments();templates.value='';};
+    assets.onchange=()=>{const a=library.assets.find(a=>a.id===assets.value);if(a&&!attachments.some(x=>x.id===a.id)){attachments.push(a);dirty=true;drawAttachments();}assets.value='';};
+   }).catch(()=>{});
    editor.oninput=()=>{dirty=true;saveStatus.textContent='有未保存的修改';};
    function showDraft(r,{activate=true}={}){
     if(!history.querySelector('[data-run="'+r.id+'"]')){const item=document.createElement('div');item.dataset.run=r.id;const text=document.createElement('pre');text.textContent=r.draft||r.summary;item.append(text);history.prepend(item);}
-    if(activate){results.querySelector('.ai-reply h3').textContent=r.status==='sent'?'回复 · 已发送':'回复草稿 · 尚未发送';editor.readOnly=r.status==='sent';results.querySelector('[data-save]').disabled=r.status==='sent';sendButton.disabled=r.status==='sent'||session.role!=='admin';activeDraft=r;editor.value=r.draft||'';dirty=false;context.replaceChildren();const summary=document.createElement('p');summary.textContent=r.summary||'';const unknowns=document.createElement('p');unknowns.textContent='待确认：'+(r.unknowns?.join('；')||'请核对回复内容');context.append(summary,unknowns);}
+    if(activate){results.querySelector('[data-draft-state]').textContent=r.status==='sent'?'已发送':'';editor.readOnly=r.status==='sent';results.querySelector('[data-save]').disabled=r.status==='sent';sendButton.disabled=r.status==='sent'||session.role!=='admin'||!recipient;activeDraft=r;attachments=r.attachments||[];drawAttachments();results.querySelectorAll('[data-use-template],[data-add-attachment]').forEach(b=>b.disabled=r.status==='sent');editor.value=r.draft||'';dirty=false;context.replaceChildren();}
    }
-   async function saveDraft(){const r=await api(activeDraft?'agent_runs/'+activeDraft.id+'/draft':'mail_threads/'+thread.id+'/draft',{method:'POST',body:JSON.stringify({draft:editor.value,version:activeDraft?.version})});activeDraft=r;dirty=false;saveStatus.textContent='草稿已保存，尚未发送';return r;}
+   async function saveDraft(){const r=await api(activeDraft?'agent_runs/'+activeDraft.id+'/draft':'mail_threads/'+thread.id+'/draft',{method:'POST',body:JSON.stringify({draft:editor.value,attachment_ids:attachments.map(a=>a.id),version:activeDraft?.version})});activeDraft=r;dirty=false;saveStatus.textContent='草稿已保存，尚未发送';return r;}
    results.querySelector('[data-save]').onclick=async e=>{e.target.disabled=true;try{await saveDraft();}catch(e){saveStatus.textContent=e.message;}finally{e.target.disabled=false;}};
-   results.querySelector('[data-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(editor.value);saveStatus.textContent='已复制，尚未发送';}catch{saveStatus.textContent='请选中回复内容手动复制';}};
    sendButton.onclick=async()=>{
-    sendButton.disabled=true;editor.readOnly=true;results.querySelector('[data-save]').disabled=true;modal.querySelector('#analyze-mail').disabled=true;
-    const unlock=()=>{const sent=activeDraft?.status==='sent';sendButton.disabled=sent||session.role!=='admin';editor.readOnly=sent;results.querySelector('[data-save]').disabled=sent;modal.querySelector('#analyze-mail').disabled=!status.ai_configured;};
-    let confirmModal;
+    if(!recipient||!editor.value.trim())return;
+    results.querySelectorAll('[data-use-template],[data-add-attachment],[data-remove-attachment]').forEach(b=>b.disabled=true);
+    sendButton.disabled=true;sendButton.textContent='发送中…';editor.readOnly=true;results.querySelector('[data-save]').disabled=true;modal.querySelector('#analyze-mail').disabled=true;
     try{
      if(dirty||!activeDraft)await saveDraft();
+     saveStatus.textContent='';
      const preview=await api('agent_runs/'+activeDraft.id+'/send-preview',{method:'POST',body:JSON.stringify({version:activeDraft.version})});
-     confirmModal=dialog('确认发送回复',`<p>发件人：${esc(preview.from)}</p><p><strong>收件人：${esc(preview.to)}</strong></p><p>主题：${esc(preview.subject)}</p><p>仅发送下方正文，无抄送或附件。</p>${preview.unknowns?.length?`<p class="notice">待核对：${esc(preview.unknowns.join('；'))}</p>`:''}<pre class="send-preview-body">${esc(preview.body)}</pre><label><input type="checkbox" data-reviewed> 我已核对收件人、正文和待确认事项</label><div class="toolbar"><button class="primary" data-confirm-send disabled>确认发送</button><button class="secondary" data-cancel-send>返回修改</button></div><p role="status" data-send-result></p>`);
-     confirmModal.querySelector('[data-reviewed]').onchange=e=>{confirmModal.querySelector('[data-confirm-send]').disabled=!e.target.checked;};
-     confirmModal.querySelector('[data-cancel-send]').onclick=()=>confirmModal.close();
-     confirmModal.addEventListener('close',unlock,{once:true});
-     confirmModal.querySelector('[data-confirm-send]').onclick=async e=>{
-      e.target.disabled=true;confirmModal.querySelector('[data-reviewed]').disabled=true;
-      const result=confirmModal.querySelector('[data-send-result]');result.textContent='正在发送，请勿重复操作…';
-      try{const sent=await api('agent_runs/'+activeDraft.id+'/send',{method:'POST',body:JSON.stringify({preview_id:preview.preview_id,confirm:true})});activeDraft={...activeDraft,status:'sent',sent_at:sent.sent_at};showDraft(activeDraft);saveStatus.textContent='已发送 · '+new Date(sent.sent_at).toLocaleString();confirmModal.close();}
-      catch(error){result.textContent=error.message+' 关闭此窗口后可重新核对。';saveStatus.textContent=error.message;}
-     };
-    }catch(error){saveStatus.textContent=error.message;unlock();}
+     if(preview.to!==recipient.to||preview.subject!==recipient.subject){await loadRecipient();throw Error('收件人或主题已变化，请核对后再次发送');}
+     const sent=await api('agent_runs/'+activeDraft.id+'/send',{method:'POST',body:JSON.stringify({preview_id:preview.preview_id,confirm:true})});
+     activeDraft={...activeDraft,status:'sent',sent_at:sent.sent_at};showDraft(activeDraft);feedback.textContent='';saveStatus.textContent='已发送 · '+new Date(sent.sent_at).toLocaleString();
+    }catch(error){saveStatus.textContent=error.message;}
+    finally{const sent=activeDraft?.status==='sent';results.querySelectorAll('[data-use-template],[data-add-attachment],[data-remove-attachment]').forEach(b=>b.disabled=sent);sendButton.textContent=sent?'已发送':'发送';sendButton.disabled=sent||session.role!=='admin'||!recipient;editor.readOnly=sent;results.querySelector('[data-save]').disabled=sent;modal.querySelector('#analyze-mail').disabled=!status.ai_configured;}
    };
    if(!status.ai_configured)feedback.textContent='AI 服务尚未配置，连接后可起草回复。';
-   modal.querySelector('#analyze-mail').onclick=async e=>{const button=e.target;button.disabled=true;button.textContent='正在起草…';feedback.className='';feedback.textContent='正在读取当前会话并生成回复，请稍候…';feedback.scrollIntoView({block:'nearest'});try{if(dirty)await saveDraft();const r=await api('mail_threads/'+thread.id+'/reply',{method:'POST',body:'{}',signal:AbortSignal.timeout(75000)});showDraft(r,{activate:!dirty});try{const latest=await api('mail_threads/'+thread.id);version=latest.version;mountThread(modal.querySelector('.email-thread'),latest.messages,{collapsible:true});}catch{}feedback.textContent=dirty?'新草稿已保存至历史草稿，保留你正在编辑的内容。':r.draft?'草稿已生成并保存，尚未发送。':'AI 建议暂不回复，请查看下方原因和待确认事项。';results.firstElementChild?.scrollIntoView({block:'nearest'});}catch(e){feedback.className='reply-error';feedback.textContent='起草未完成：'+(e.name==='TimeoutError'?'等待时间较长，请稍后重试。':e.message);feedback.scrollIntoView({block:'nearest'});}finally{button.disabled=false;button.textContent='AI 重新起草';}};
+   modal.querySelector('#analyze-mail').onclick=async e=>{const button=e.target;button.disabled=true;button.textContent='正在起草…';feedback.className='';feedback.textContent='正在读取当前会话并生成回复，请稍候…';feedback.scrollIntoView({block:'nearest'});try{if(dirty)await saveDraft();const r=await api('mail_threads/'+thread.id+'/reply',{method:'POST',body:'{}',signal:AbortSignal.timeout(75000)});showDraft(r,{activate:!dirty});try{const latest=await api('mail_threads/'+thread.id);version=latest.version;mountThread(modal.querySelector('.email-thread'),latest.messages,{collapsible:true});}catch{}feedback.textContent=dirty?'新草稿已保存至历史草稿，保留你正在编辑的内容。':r.draft?'':r.summary||'AI 建议暂不回复。';results.firstElementChild?.scrollIntoView({block:'nearest'});}catch(e){feedback.className='reply-error';feedback.textContent='起草未完成：'+(e.name==='TimeoutError'?'等待时间较长，请稍后重试。':e.message);feedback.scrollIntoView({block:'nearest'});}finally{button.disabled=false;button.textContent='AI 重新起草';}};
    try{for(const r of (await api('agent_runs?thread_id='+thread.id)).items)showDraft(r,{activate:!dirty&&!activeDraft});}catch(e){feedback.className='reply-error';feedback.textContent='历史草稿加载失败：'+e.message;}
 
 

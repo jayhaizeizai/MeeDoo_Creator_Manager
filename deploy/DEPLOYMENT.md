@@ -23,3 +23,6 @@ Lark is configured and real login is verified. Pending Google OAuth web client a
 Set DB_PATH=/var/lib/meedoo-creator/workspace.sqlite and explicit LARK_ADMIN_OPEN_IDS in the root-only environment file. The unit StateDirectory provides a private writable path. Install the dedicated backup service/timer only after testing deploy/backup.mjs against the deployed Node runtime. Current daily backups are local and integrity-checked; off-host recovery and retention remain unconfigured. Preserve the database and encryption key through releases.
 
 The nginx callback logging exception must cover both /auth/lark/callback and /auth/google/callback, including error logging. Validate before reloading nginx. Never log provider codes, tokens or secrets.
+
+## Brand file uploads
+Set client_max_body_size 16m only on the creator HTTPS vhost; keep other host configuration unchanged. The application limits individual decoded files to 10 MB and stores private library bytes inside its persistent SQLite database. Backups include these bytes. Never copy them into releases or Git.
