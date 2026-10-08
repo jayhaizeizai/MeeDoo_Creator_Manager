@@ -15,7 +15,7 @@ let generation=0;
 export function showWorkspace({page,session,csrf,toast}){
  const target=document.querySelector('#body'),generationId=++generation;
  const alive=()=>generationId===generation&&document.querySelector('#body')===target;
- const api=async(path,options={})=>{const r=await fetch('/api/'+path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});let d;try{d=await r.json();}catch{throw Error('服务器响应异常');}if(!r.ok)throw Error(d.message||({authentication_required:'登录已过期，请刷新页面',not_found:'记录不存在'}[d.error]||d.error));return d;};
+ const api=async(path,options={})=>{const r=await fetch('/api/'+path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,...options.headers}});let d;try{d=await r.json();}catch{throw Error('服务器响应异常');}if(!r.ok){const error=Error(d.message||({authentication_required:'登录已过期，请刷新页面',not_found:'记录不存在'}[d.error]||d.error));error.status=r.status;error.code=d.error;throw error;}return d;};
  const note=t=>`<div class="notice">${esc(t)}</div>`;
  const button=(id,label)=>`<button class="secondary" id="${id}">${label}</button>`;
  let currentKind='',offset=0,query='';
@@ -161,7 +161,7 @@ export function showWorkspace({page,session,csrf,toast}){
   target.querySelectorAll('[data-agent-done]').forEach(b=>b.onclick=async()=>{const r=result.items.find(r=>r.id===b.dataset.agentDone);b.disabled=true;try{await api(r.kind+'/'+r.id+(r.kind==='tasks'?'':'/review'),{method:r.kind==='tasks'?'PATCH':'POST',body:JSON.stringify({version:r.version,...(r.kind==='tasks'?{status:'done'}:{})})});await agentQueue();}catch(e){b.closest('.agent-details').querySelector('[role="alert"]').textContent=e.message;b.disabled=false;}});
   target.querySelectorAll('[data-agent-thread]').forEach(b=>b.onclick=()=>run(async()=>{const t=await api('mail_threads/'+b.dataset.agentThread);const modal=dialog(t.subject||'相关对话','<div class="email-thread"></div>');modal.classList.add('mail-reader');mountThread(modal.querySelector('.email-thread'),t.messages);}));
  }
- async function run(fn){try{await fn();}catch(e){if(alive()){target.innerHTML=note(e.message)+button('retry-live','重试');target.querySelector('#retry-live').onclick=()=>run(fn);}}}
+ async function run(fn){try{await fn();}catch(e){if(alive()){target.innerHTML=note(e.message)+button('retry-live','重试');target.querySelector('#retry-live').onclick=()=>{if(e.status===401||['authentication_required','login_again'].includes(e.code))location.reload();else run(fn);};}}}
  target.innerHTML='<div class="card empty">正在加载真实数据…</div>';
  const kind={2:'creators',3:'collaborations',4:'agreements',6:'deliverables',7:'policies'}[page];
  if(kind)run(()=>list(kind));else if(page===5)target.innerHTML=note('目前没有满足发货门槛的合作。合同接受、产品、尺寸、地址、库存和国家资格全部核验后才能发货。');else run(page===9?agentQueue:page===8?connections:page===0?mailbox:home);
