@@ -110,6 +110,10 @@ export function showWorkspace({page,session,csrf,toast}){
    const main=document.createElement('div');main.className='mail-detail-main';main.append(modal.querySelector('.email-thread'));
    const reply=document.createElement('section');reply.className='mail-reply-panel';const replyTitle=document.createElement('h3');replyTitle.textContent='回复';reply.append(replyTitle);const warning=modal.querySelector('.notice');warning?.remove();const feedback=document.createElement('p');feedback.id='reply-feedback';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');reply.append(modal.querySelector('#analyze-mail'),feedback,modal.querySelector('#analysis-result'));main.append(reply);layout.append(sidebar,main);modal.append(layout);
    let version=thread.version;
+   let messageIds=thread.messages.map(m=>m.id).join(','),refreshingThread=false;
+   async function refreshOpenThread(){if(refreshingThread||!modal.open)return;refreshingThread=true;try{const latest=await api('mail_threads/'+thread.id);version=latest.version;const ids=latest.messages.map(m=>m.id).join(',');if(modal.open&&ids!==messageIds){messageIds=ids;mountThread(modal.querySelector('.email-thread'),latest.messages,{collapsible:true});sidebar.querySelector('section>p').textContent=latest.messages.length+' 封邮件';}}finally{refreshingThread=false;}}
+   const threadTimer=setInterval(()=>{if(modal.open)refreshOpenThread().catch(()=>{});},10000);modal.addEventListener('close',()=>clearInterval(threadTimer),{once:true});
+
    modal.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await api('mail_threads/'+thread.id+'/link',{method:'POST',body:JSON.stringify({collaboration_id:new FormData(e.target).get('collaboration_id'),version})});version=r.version;modal.querySelector('#analyze-mail').disabled=!status.ai_configured||!thread.body_ready;toast('已关联');}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}};
    modal.querySelector('#unrelated').onclick=async()=>{try{await api('mail_threads/'+thread.id+'/link',{method:'POST',body:JSON.stringify({classification:'unrelated',version})});modal.close();if(page===9)await agentQueue();else await mailbox();}catch(e){modal.querySelector('[role="alert"]').textContent=e.message;}};
    const results=modal.querySelector('#analysis-result');
@@ -146,7 +150,7 @@ export function showWorkspace({page,session,csrf,toast}){
      const preview=await api('agent_runs/'+activeDraft.id+'/send-preview',{method:'POST',body:JSON.stringify({version:activeDraft.version})});
      if(preview.to!==recipient.to||preview.subject!==recipient.subject){await loadRecipient();throw Error('收件人或主题已变化，请核对后再次发送');}
      const sent=await api('agent_runs/'+activeDraft.id+'/send',{method:'POST',body:JSON.stringify({preview_id:preview.preview_id,confirm:true})});
-     activeDraft={...activeDraft,status:'sent',sent_at:sent.sent_at};showDraft(activeDraft);feedback.textContent='';saveStatus.textContent='已发送 · '+new Date(sent.sent_at).toLocaleString();if(page===9)await agentQueue();
+     activeDraft={...activeDraft,status:'sent',sent_at:sent.sent_at};showDraft(activeDraft);feedback.textContent='';saveStatus.textContent='已发送 · '+new Date(sent.sent_at).toLocaleString();try{await refreshOpenThread();if(page===9)await agentQueue();else await mailbox();}catch{saveStatus.textContent+=' · 会话稍后自动更新';}
     }catch(error){saveStatus.textContent=error.message;}
     finally{const sent=activeDraft?.status==='sent';results.querySelectorAll('[data-use-template],[data-add-attachment],[data-remove-attachment]').forEach(b=>b.disabled=sent);sendButton.textContent=sent?'已发送':'发送';sendButton.disabled=sent||session.role!=='admin'||!recipient;editor.readOnly=sent;results.querySelector('[data-save]').disabled=sent;modal.querySelector('#analyze-mail').disabled=!status.ai_configured;}
    };

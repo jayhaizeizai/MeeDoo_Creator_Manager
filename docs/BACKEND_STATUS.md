@@ -58,3 +58,6 @@ Automatic attachments are limited to the requested brand material categories: up
 
 ## Ignore Agent requests (2026-10-08)
 Agent cards support “忽视并不再提醒” with an explicit confirmation dialog. Confirmation persists a tenant-scoped suppression for that task or mail-content snapshot; duplicate suggestions and later reanalysis of the same snapshot remain hidden across restart. New email content can create new reminders. The operation checks ownership, CSRF and version, records an audit entry and does not send email or delete the conversation.
+
+## Immediate sent-message visibility (2026-10-08)
+After Gmail confirms a send, its message ID and the exact sent content are written to the local thread in the same transaction as the send receipt. Lagging background reads preserve this confirmed message until Gmail returns its ID, then replace it without duplication. Sending refreshes the open detail and Inbox list immediately. Open conversation details check for new message IDs every ten seconds without replacing edited drafts.
