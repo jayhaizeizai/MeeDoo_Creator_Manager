@@ -15,3 +15,5 @@
 .mail-detail-layout .mail-detail-sidebar{position:static;inset:auto;width:auto;padding:0;display:block;z-index:auto;min-width:0}
 
 #reply-feedback{margin:12px 0;font-size:13px;color:#736686}#reply-feedback:empty{display:none}#reply-feedback.reply-error{padding:12px;background:#fff1f0;border:1px solid #ffd0ca;border-radius:8px;color:#a13232}
+
+.send-preview-body{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.7;max-height:45vh;overflow:auto;padding:16px;border:1px solid #e5e7ef;border-radius:10px}
