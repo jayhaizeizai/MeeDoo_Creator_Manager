@@ -22,8 +22,8 @@ test('full-thread synchronization is idempotent, unclassified and never sends',a
  h.service.disconnect(sess.user);await assert.rejects(()=>h.service.sync(sess.user,{after:'2026-01-01'}),e=>e.code==='gmail_not_connected');
  }finally{h.store.close();}
 });
-test('attachment or HTML-only messages cannot be marked complete for AI',()=>{
- const h=harness();try{const raw={id:'t',messages:[{id:'m',payload:{mimeType:'multipart/mixed',parts:[{mimeType:'text/plain',body:{data:Buffer.from('text').toString('base64url')}},{filename:'terms.pdf',body:{attachmentId:'attachment'}}]}}]};assert.equal(h.service.normalizeThread(raw).complete,false);assert.equal(h.service.normalizeThread({id:'t',messages:[{id:'m',payload:{mimeType:'text/html',body:{data:'eA'}}}]}).complete,false);}finally{h.store.close();}
+test('attachments stay incomplete while HTML-only text is extracted',()=>{
+ const h=harness();try{const raw={id:'t',messages:[{id:'m',payload:{mimeType:'multipart/mixed',parts:[{mimeType:'text/plain',body:{data:Buffer.from('text').toString('base64url')}},{filename:'terms.pdf',body:{attachmentId:'attachment'}}]}}]};assert.equal(h.service.normalizeThread(raw).complete,false);assert.equal(h.service.normalizeThread({id:'t',messages:[{id:'m',payload:{mimeType:'text/html',body:{data:'eA'}}}]}).complete,true);}finally{h.store.close();}
 });
 
 test('automatic job follows every page, resumes a persisted cursor and deduplicates refreshes',async()=>{
@@ -44,12 +44,12 @@ test('automatic job follows every page, resumes a persisted cursor and deduplica
 });
 
 
-test('HTML alternatives and declared charsets are retained without mixing or enabling AI on HTML-only mail',()=>{
+test('HTML alternatives and declared charsets are retained without mixing, with HTML-only text extraction',()=>{
  const h=harness();try{const msg={id:'m',payload:{mimeType:'multipart/alternative',parts:[{mimeType:'text/plain',headers:[{name:'Content-Type',value:'text/plain; charset=iso-8859-1'}],body:{data:Buffer.from([99,97,102,233]).toString('base64url')}},{mimeType:'text/html',body:{data:Buffer.from('<p><b>café</b></p>').toString('base64url')}}]}};
- const result=h.service.normalizeThread({id:'t',messages:[msg]});assert.equal(result.messages[0].body,'café');assert.equal(result.messages[0].html_body,'<p><b>café</b></p>');assert.equal(result.render_version,2);assert.equal(result.complete,true);
- msg.payload.parts.shift();assert.equal(h.service.normalizeThread({id:'t',messages:[msg]}).complete,false);
+ const result=h.service.normalizeThread({id:'t',messages:[msg]});assert.equal(result.messages[0].body,'café');assert.equal(result.messages[0].html_body,'<p><b>café</b></p>');assert.equal(result.render_version,3);assert.equal(result.complete,true);
+ msg.payload.parts.shift();assert.equal(h.service.normalizeThread({id:'t',messages:[msg]}).complete,true);
  }finally{h.store.close();}
 });
 test('unchanged provider content is reprocessed once when the rendering format changes',async()=>{
- const h=harness();try{await connect(h.service);await h.service.sync(sess.user);h.store.db.prepare("UPDATE records SET data=json_remove(data,'$.render_version') WHERE kind='mail_threads'").run();await h.service.sync(sess.user);assert.equal(h.store.list('mail_threads','tenant')[0].render_version,2);assert.equal(h.store.list('mail_threads','tenant')[0].version,2);await h.service.sync(sess.user);assert.equal(h.store.list('mail_threads','tenant')[0].version,2);}finally{h.store.close();}
+ const h=harness();try{await connect(h.service);await h.service.sync(sess.user);h.store.db.prepare("UPDATE records SET data=json_remove(data,'$.render_version') WHERE kind='mail_threads'").run();await h.service.sync(sess.user);assert.equal(h.store.list('mail_threads','tenant')[0].render_version,3);assert.equal(h.store.list('mail_threads','tenant')[0].version,2);await h.service.sync(sess.user);assert.equal(h.store.list('mail_threads','tenant')[0].version,2);}finally{h.store.close();}
 });

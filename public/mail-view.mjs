@@ -23,11 +23,11 @@ export function renderBody(host,message){
  }
  return shadow;
 }
-export function mountThread(container,messages){
+export function mountThread(container,messages,{collapsible=false}={}){
  container.replaceChildren();
  for(const m of messages){
-  const article=document.createElement('article');article.className='email-message';
-  const header=document.createElement('div');header.className='email-message-head';const sender=document.createElement('strong');sender.textContent=m.from||'未知发件人';const date=document.createElement('time');date.textContent=m.at&&Number.isFinite(Number(m.at))?new Date(Number(m.at)).toLocaleString():'';header.append(sender,date);
+  const article=document.createElement(collapsible?'details':'article');if(collapsible)article.open=m===messages.at(-1);article.className='email-message';
+  const header=document.createElement(collapsible?'summary':'div');header.className='email-message-head';const sender=document.createElement('strong');sender.textContent=m.from||'未知发件人';const date=document.createElement('time');date.textContent=m.at&&Number.isFinite(Number(m.at))?new Date(Number(m.at)).toLocaleString():'';header.append(sender,date);if(collapsible){const preview=document.createElement('span');preview.className='email-message-preview';preview.textContent=(m.body||'').replace(/\s+/g,' ').slice(0,180);header.append(preview);}
   const recipients=document.createElement('p');recipients.className='email-recipients';recipients.textContent='收件人：'+(m.to||'—')+(m.cc?' · 抄送：'+m.cc:'');
   const host=document.createElement('div');host.className='email-body';article.append(header,recipients,host);renderBody(host,m);
   if(m.attachments?.length){const attachments=document.createElement('p');attachments.className='email-attachments';attachments.textContent='附件（请在原邮箱打开）：'+m.attachments.map(a=>a.name).join('、');article.append(attachments);}
