@@ -4,8 +4,8 @@ const tags=['div','p','br','span','b','strong','i','em','u','s','strike','ul','o
 
 const diagnostic=/^\s*(?:Diagnostic information for administrators\s*:|诊断信息[：:]|Final-Recipient\s*:)/im;
 const quoted=/^(?:On .{1,250}wrote:|在.{1,250}写道[：:]|[-_]{3,}\s*(?:Original Message|原始邮件)\s*[-_]{3,}|>)/im;
-function foldNode(node,label){const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent=label;node.before(details);details.append(summary,node);}
-function foldTail(root,pattern,label){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(node.parentElement?.closest('details'))continue;const match=pattern.exec(node.textContent);if(!match)continue;const range=document.createRange();range.setStart(node,match.index);range.setEnd(root,root.childNodes.length);const tail=range.extractContents(),details=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');summary.textContent=label;body.append(tail);details.append(summary,body);root.append(details);return;}}
+function foldNode(node,label){const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent=label;details.dataset.mailQuote='true';node.before(details);details.append(summary,node);}
+function foldTail(root,pattern,label){const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(node.parentElement?.closest('details'))continue;const match=pattern.exec(node.textContent);if(!match)continue;const range=document.createRange();range.setStart(node,match.index);range.setEnd(root,root.childNodes.length);const tail=range.extractContents(),details=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');summary.textContent=label;if(label.includes('引用'))details.dataset.mailQuote='true';body.append(tail);details.append(summary,body);root.append(details);return;}}
 export function renderBody(host,message){
  const shadow=host.attachShadow({mode:'open'}),style=document.createElement('link');style.rel='stylesheet';style.href=new URL('./mail-body.css',import.meta.url).href;shadow.append(style);
  const body=document.createElement('div');shadow.append(body);
@@ -21,6 +21,8 @@ export function renderBody(host,message){
   body.className='plain';body.textContent=message.body||'正文尚未解析，请在原邮箱查看。';
   foldTail(body,diagnostic,'展开退信诊断信息');foldTail(body,quoted,'展开历史引用');
  }
+ const quotes=[...body.querySelectorAll('details[data-mail-quote]')].filter(q=>!q.parentElement?.closest('details[data-mail-quote]'));
+ if(quotes.length){const combined=document.createElement('details'),summary=document.createElement('summary');combined.className='original-quotes';summary.textContent='查看原邮件引用（上方已展示历史会话）';combined.append(summary);const seen=new Set();for(const quote of quotes){const content=document.createElement('div');for(const child of [...quote.childNodes])if(child.nodeName!=='SUMMARY')content.append(child);const key=content.textContent.replace(/\s+/g,' ').trim();if(key&&!seen.has(key)){seen.add(key);combined.append(content);}quote.remove();}if(seen.size)body.append(combined);}
  return shadow;
 }
 export function mountThread(container,messages,{collapsible=false}={}){
