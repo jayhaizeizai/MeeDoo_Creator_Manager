@@ -53,3 +53,6 @@ AI context explicitly identifies Jay Lee / MeeDoo as the sender and labels each 
 
 ## CSV preview selection
 The preview now recommends creation for valid new rows, association for a single unambiguous existing match, and skipping for rows with problems or multiple matches. Counts and bulk selection controls remain visible at the top. Nothing is imported until the user submits the selected rows. Duplicate email addresses within the CSV are flagged. Files previously committed with every row skipped can be previewed again.
+
+## Reply necessity comes first
+A polite decline that closes the current offer, future openness without a current request, and simple acknowledgments produce `wait` with no draft. Quoted old questions are excluded from the closing-message check. A new concrete question or action request remains eligible for analysis. Green AI cards now require a stated reply reason and evidence pointing to the latest incoming message; missing evidence becomes a decision card. The UI shows the reason. This is conservative triage, not a guarantee that every green draft should be sent.
