@@ -1,0 +1,73 @@
+[
+  {
+    "key": "first-interest",
+    "title": "初次表达兴趣 · 分享品牌与产品资料",
+    "when": "对方首次表示有兴趣、想进一步了解合作；尚未选款。不得用于拒绝、仅付费询价、已选款或已接受条款。只替换称呼，不额外索取尺寸、地址、平台、受众或档期。两份附件均需存在。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nThanks so much for your interest!\n\nI’ve attached our Brand Overview and Product Lookbook so you can get to know MeeDoo and explore our coordinated looks for you and your pup.\n\nFor our first collaboration, we offer a gifted coordinated set, a personalized discount code, and 10% commission on qualifying sales. In return, we ask for one short vertical video (approximately 20–45 seconds) plus three high-resolution photos or clean clips.\n\nTake a look and let me know which look catches your eye — we can walk through the remaining details from there.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [
+      "brand_overview",
+      "lookbook"
+    ],
+    "enabled": true
+  },
+  {
+    "key": "overview-request",
+    "title": "资料请求 · Brand Overview",
+    "when": "仅对方明确索要品牌介绍，且不同时索要 Lookbook；必须有 Brand Overview 附件。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nThanks for your interest in MeeDoo! I’ve attached our Brand Overview for a closer look at the brand.\n\nMeeDoo creates elevated coordinated looks for women and their small dogs. Take a look, and let me know if you have any questions.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [
+      "brand_overview"
+    ],
+    "enabled": true
+  },
+  {
+    "key": "lookbook-request",
+    "title": "资料请求 · Product Lookbook",
+    "when": "仅对方明确索要产品款式或 Lookbook，且不同时索要品牌介绍；必须有 Lookbook 附件。不承诺库存。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nI’ve attached our Product Lookbook so you can explore the coordinated looks.\n\nLet me know which look catches your eye, and we can discuss the next steps. We’ll confirm availability before finalizing the selection.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [
+      "lookbook"
+    ],
+    "enabled": true
+  },
+  {
+    "key": "paid-inquiry",
+    "title": "付费合作询问 · 说明标准模式",
+    "when": "仅对方询问是否有预算或表示优先付费但仍有待回答的问题；不能用于已明确拒绝并结束的会话。不虚构没有预算，也不承诺付费审批。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nThank you for sharing your preference. Our standard Creator Program is based on a gifted coordinated set, a personalized discount code, and 10% commission on qualifying sales.\n\nCould you share your rates and the deliverables you have in mind? We can review them before confirming whether a paid arrangement is possible.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [],
+    "enabled": true
+  },
+  {
+    "key": "content-question",
+    "title": "内容要求 · Level 1 说明",
+    "when": "仅对方明确询问 Level 1 内容要求或制作时间。不是初次兴趣默认长条款；既有接受条款优先，若与此不同不得套用。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nFor our Level 1 collaboration, we ask for one original vertical video of approximately 20–45 seconds, plus three high-resolution photos or clean clips.\n\nThe production deadline is five calendar days after you’ve received the products and confirmed the correct fit. If a replacement is needed, we resolve that first.\n\nWe welcome your honest experience — positive opinions are never required. Content should clearly disclose the gifted products and potential affiliate commission.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [],
+    "enabled": true
+  },
+  {
+    "key": "fit-issue",
+    "title": "收货后 · 尺寸或合身问题",
+    "when": "已收货且对方报告合身问题；仅询问其未提供的具体问题，不重复问题，不承诺替换库存或发货日期。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nThank you for letting us know. Let’s resolve the fit before moving ahead with content.\n\nCould you let us know which piece isn’t fitting comfortably and where the fit feels off? We’ll review the options with you.\n\nThe production timeline starts after the correct fit is confirmed, so please don’t feel you need to create content with an unsuitable fit.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [],
+    "enabled": true
+  },
+  {
+    "key": "commission-question",
+    "title": "佣金说明 · Level 1",
+    "when": "对方明确询问佣金计算。仅适用于标准 Level 1 或尚未签约的一般说明；已有不同条款优先。不承诺付款日期、渠道、税务结论。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nFor Level 1, the commission is 10% of qualifying net sales attributed to your creator link or code.\n\nQualifying net sales exclude tax, shipping, discounts, cancellations, returns, refunds, chargebacks and other excluded transactions under the program terms. Commissions remain pending until the applicable cancellation and return checks are complete.\n\nThere is no minimum sales requirement, and the gift does not need to be reimbursed solely because it does not generate sales.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [],
+    "enabled": true
+  },
+  {
+    "key": "terms-review",
+    "title": "已选款 · 下一步确认条款",
+    "when": "对方明确选款并愿意继续，但尚未发正式条款。不是合同接受证据，不声称已有合同链接或发送附件。不得直接收集地址尺寸。 来源：docs/AGENT_CONTEXT.md v0.3（2026-10-07 Playbook 摘要）；模板为改写，非原文。",
+    "body": "Hi {{creator_name}},\n\nThank you for letting us know your preferred look!\n\nThe next step is to review the collaboration terms together, including the agreed content, timing, disclosure and usage permissions. Once those are confirmed, we can move on to sizing and shipping details.\n\nPlease let me know if there’s anything you’d like us to clarify before then.\n\nWarmly,\nJay Lee\nMeeDoo Creator Partnerships",
+    "purposes": [],
+    "enabled": true
+  }
+]
