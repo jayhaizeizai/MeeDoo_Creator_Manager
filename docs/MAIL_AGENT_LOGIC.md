@@ -56,3 +56,9 @@ Upload CSV, map each source column to a MeeDoo field (or skip that column), revi
 
 ## Reply necessity comes first
 A polite decline that closes the current offer, future openness without a current request, and simple acknowledgments produce `wait` with no draft. Quoted old questions are excluded from the closing-message check. A new concrete question or action request remains eligible for analysis. Green AI cards now require a stated reply reason and evidence pointing to the latest incoming message; missing evidence becomes a decision card. The UI shows the reason. This is conservative triage, not a guarantee that every green draft should be sent.
+
+## 手动检查与 Creator 联系状态
+
+Agent 页的「立即检查」先排队执行 Gmail 增量同步（首次连接时继续完整同步），同步成功后立即检查新增内容及未读请求，不受每小时间隔限制。重复点击不会重复建立检查任务，已发送、已审核或已忽视的同一内容继续跳过；不会自动发送邮件。页面显示同步/检查状态和错误，完成后更新待办。
+
+Creators 列表支持下拉修改联系状态，默认「未联系」。可选：未联系、已联系、已回复、有意向、仅付费合作、已拒绝、未回复、稍后跟进、暂无邮箱、邮件退信。旧记录缺省显示未联系，新建及导入写入默认值。修改沿用权限、版本冲突与审计机制；该状态由用户调整，与合作里程碑独立。
