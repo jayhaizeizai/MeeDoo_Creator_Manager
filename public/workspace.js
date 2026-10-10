@@ -143,7 +143,7 @@ export function showWorkspace({page,session,csrf,toast}){
    editor.oninput=()=>{dirty=true;saveStatus.textContent='有未保存的修改';};
    function showDraft(r,{activate=true}={}){
     if(!history.querySelector('[data-run="'+r.id+'"]')){const item=document.createElement('div');item.dataset.run=r.id;const text=document.createElement('pre');text.textContent=r.draft||r.summary;item.append(text);history.prepend(item);}
-    if(activate){results.querySelector('[data-draft-state]').textContent=r.status==='sent'?'已发送':'';editor.readOnly=r.status==='sent';results.querySelector('[data-save]').disabled=r.status==='sent';sendButton.disabled=r.status==='sent'||session.role!=='admin'||!recipient;activeDraft=r;attachments=r.attachments||[];drawAttachments();results.querySelectorAll('[data-use-template],[data-add-attachment]').forEach(b=>b.disabled=r.status==='sent');editor.value=r.draft||'';dirty=false;context.replaceChildren();}
+    if(activate&&r.status!=='sent'){results.querySelector('[data-draft-state]').textContent=r.status==='sent'?'已发送':'';editor.readOnly=r.status==='sent';results.querySelector('[data-save]').disabled=r.status==='sent';sendButton.disabled=r.status==='sent'||session.role!=='admin'||!recipient;activeDraft=r;attachments=r.attachments||[];drawAttachments();results.querySelectorAll('[data-use-template],[data-add-attachment]').forEach(b=>b.disabled=r.status==='sent');editor.value=r.draft||'';dirty=false;context.replaceChildren();}
    }
    async function saveDraft(){const r=await api(activeDraft?'agent_runs/'+activeDraft.id+'/draft':'mail_threads/'+thread.id+'/draft',{method:'POST',body:JSON.stringify({draft:editor.value,attachment_ids:attachments.map(a=>a.id),version:activeDraft?.version})});activeDraft=r;dirty=false;saveStatus.textContent='草稿已保存，尚未发送';return r;}
    results.querySelector('[data-save]').onclick=async e=>{e.target.disabled=true;try{await saveDraft();}catch(e){saveStatus.textContent=e.message;}finally{e.target.disabled=false;}};
@@ -157,13 +157,22 @@ export function showWorkspace({page,session,csrf,toast}){
      const preview=await api('agent_runs/'+activeDraft.id+'/send-preview',{method:'POST',body:JSON.stringify({version:activeDraft.version})});
      if(preview.to!==recipient.to||preview.subject!==recipient.subject){await loadRecipient();throw Error('收件人或主题已变化，请核对后再次发送');}
      const sent=await api('agent_runs/'+activeDraft.id+'/send',{method:'POST',body:JSON.stringify({preview_id:preview.preview_id,confirm:true})});
-     activeDraft={...activeDraft,status:'sent',sent_at:sent.sent_at};showDraft(activeDraft);feedback.textContent='';saveStatus.textContent='已发送 · '+new Date(sent.sent_at).toLocaleString();try{await refreshOpenThread();if(page===9)await agentQueue();else await mailbox();}catch{saveStatus.textContent+=' · 会话稍后自动更新';}
+     showDraft({...activeDraft,status:'sent',sent_at:sent.sent_at},{activate:false});
+     // Show the confirmed send immediately, even before the provider sync finishes.
+     const latest=await api('mail_threads/'+thread.id).catch(()=>null);
+     const displayed=latest||{...thread,messages:[...thread.messages,{id:sent.message_id,from:preview.from,to:preview.to,subject:preview.subject,at:String(Date.parse(sent.sent_at)),body:preview.body,attachments:preview.attachments||[],labels:['SENT']}]};
+     thread.messages=displayed.messages;messageIds=displayed.messages.map(m=>m.id).join(',');version=displayed.version;
+     renderMail(modal.querySelector('.email-thread'),displayed);sidebar.querySelector('section>p').textContent=displayed.messages.length+' 封邮件';
+     activeDraft=null;attachments=[];editor.value='';dirty=false;drawAttachments();context.replaceChildren();feedback.textContent='';saveStatus.textContent='';results.querySelector('[data-draft-state]').textContent='';results.querySelectorAll('select').forEach(s=>s.value='');
+     const notice=dialog('发送成功','<p>邮件已加入当前对话。</p>');notice.querySelector('[data-close]').textContent='知道了';
+     modal.querySelector('.email-thread').lastElementChild?.scrollIntoView({block:'nearest'});
+     try{if(page===9)await agentQueue();else await mailbox();}catch{saveStatus.textContent='邮件已发送，列表稍后更新';}
     }catch(error){saveStatus.textContent=error.message;}
     finally{const sent=activeDraft?.status==='sent';results.querySelectorAll('[data-use-template],[data-add-attachment],[data-remove-attachment]').forEach(b=>b.disabled=sent);sendButton.textContent=sent?'已发送':'发送';sendButton.disabled=sent||session.role!=='admin'||!recipient;editor.readOnly=sent;results.querySelector('[data-save]').disabled=sent;modal.querySelector('#analyze-mail').disabled=!status.ai_configured;}
    };
    if(!status.ai_configured)feedback.textContent='AI 服务尚未配置，连接后可起草回复。';
    modal.querySelector('#analyze-mail').onclick=async e=>{const button=e.target;button.disabled=true;button.textContent='正在起草…';feedback.className='';feedback.textContent='正在读取当前会话并生成回复，请稍候…';feedback.scrollIntoView({block:'nearest'});try{if(dirty)await saveDraft();const r=await api('mail_threads/'+thread.id+'/reply',{method:'POST',body:'{}',signal:AbortSignal.timeout(75000)});showDraft(r,{activate:!dirty});try{const latest=await api('mail_threads/'+thread.id);version=latest.version;renderMail(modal.querySelector('.email-thread'),latest);}catch{}feedback.textContent=dirty?'新草稿已保存至历史草稿，保留你正在编辑的内容。':r.draft?'':r.summary||'AI 建议暂不回复。';results.firstElementChild?.scrollIntoView({block:'nearest'});}catch(e){feedback.className='reply-error';feedback.textContent='起草未完成：'+(e.name==='TimeoutError'?'等待时间较长，请稍后重试。':e.message);feedback.scrollIntoView({block:'nearest'});}finally{button.disabled=false;button.textContent='AI 重新起草';}};
-   try{if(draftId)showDraft(await api('agent_runs/'+draftId),{activate:!dirty&&!activeDraft});for(const r of (await api('agent_runs?thread_id='+thread.id)).items)showDraft(r,{activate:!dirty&&!activeDraft&&(!draftId||r.id===draftId)});}catch(e){feedback.className='reply-error';feedback.textContent='历史草稿加载失败：'+e.message;}
+   try{if(draftId)showDraft(await api('agent_runs/'+draftId),{activate:!dirty&&!activeDraft});let newest=true;for(const r of (await api('agent_runs?thread_id='+thread.id)).items){showDraft(r,{activate:newest&&!dirty&&!activeDraft&&(!draftId||r.id===draftId)});newest=false;}}catch(e){feedback.className='reply-error';feedback.textContent='历史草稿加载失败：'+e.message;}
 
 
  }
@@ -197,3 +206,4 @@ export function showWorkspace({page,session,csrf,toast}){
  const kind={2:'creators',3:'collaborations',4:'agreements',6:'deliverables',7:'policies'}[page];
  if(kind)run(()=>list(kind));else if(page===5)target.innerHTML=note('目前没有满足发货门槛的合作。合同接受、产品、尺寸、地址、库存和国家资格全部核验后才能发货。');else run(page===10?async()=>{target.innerHTML='';if(session.role==='admin')await mountMailLibrary(target,api);else target.innerHTML=note('仅管理员可以管理邮件模板与附件。');}:page===9?agentQueue:page===8?connections:page===0?mailbox:home);
 }
+
