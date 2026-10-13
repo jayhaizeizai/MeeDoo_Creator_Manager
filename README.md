@@ -51,3 +51,6 @@ Incremental sync checkpoints are durable in SQLite. Upgrades initialize a fresh 
 
 ## Hourly Agent checks
 The Agent worker now checks new conversation content and explicit workspace unread requests every hour. Durable checkpoints prevent repeated analysis across restarts; existing human edits and ignored content are preserved. Automated checks never call the send API. See [mail and Agent logic](docs/MAIL_AGENT_LOGIC.md) for module boundaries, initial-history behavior and card colors.
+
+## Creator Lists
+Creators opens with a searchable List overview showing visible member counts, platforms, update/create times and creator name. All creators is a virtual, undeletable view. Custom lists support names, many-to-many memberships and page-level bulk selection. Inside a list, new Creators and CSV-created/linked Creators are added to that list; reimporting a committed batch reuses its records. Removing membership or deleting a list preserves Creator records and communication history. Membership/name changes use optimistic versions and audit records; existing tenant and owner access rules apply. Lists use the existing persistent records table, with no destructive migration.

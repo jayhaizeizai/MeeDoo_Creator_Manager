@@ -55,3 +55,28 @@ test('milestones cannot invent acceptance or shipping; approved policy snapshots
 }));
 
 test('creator contact status defaults, persists and validates versioned changes',()=>setup(async({login,restart})=>{let api=await login();const created=await api('creators',{method:'POST',data:{name:'Status test'}});assert.equal(created.data.status,'UNCONTACTED');const id=created.data.id;const list=await api('creators');assert.equal(list.data.statuses.length,10);assert.equal((await api('creators/'+id,{method:'PATCH',data:{status:'WRONG',version:1}})).status,422);assert.equal((await api('creators/'+id,{method:'PATCH',data:{status:'CONTACTED',version:1}})).status,200);assert.equal((await api('creators/'+id,{method:'PATCH',data:{status:'REPLIED',version:1}})).status,409);assert.equal((await api('creators/'+id+'/history')).data.items.length,2);await restart();api=await login();assert.equal((await api('creators/'+id)).data.status,'CONTACTED');}));
+
+test('Creator Lists persist, filter members, protect access and retain creators on deletion',()=>setup(async({login,restart})=>{
+ let api=await login();const c=(await api('creators',{method:'POST',data:{name:'List Creator',social_url:'https://www.tiktok.com/@listtest'}})).data;
+ let l=(await api('creator_lists',{method:'POST',data:{name:'First round'}})).data;
+ let added=await api('creator_lists/'+l.id+'/members',{method:'POST',data:{version:l.version,operation:'add',creator_ids:[c.id,c.id]}});assert.equal(added.status,200);l=added.data;assert.deepEqual(l.creator_ids,[c.id]);
+ assert.equal((await api('creators?list_id='+l.id)).data.total,1);
+ assert.equal((await api('creator_lists')).data.items.find(x=>x.id===l.id).count,1);
+ assert.equal((await api('creator_lists/'+l.id,{method:'PATCH',data:{name:'stale',version:1}})).status,409);
+ const other=await login('operator');assert.equal((await other('creators?list_id='+l.id)).status,404);
+ const tenant=await login('admin','t2');assert.equal((await tenant('creators?list_id='+l.id)).status,404);
+ await restart();api=await login();assert.equal((await api('creators?list_id='+l.id)).data.total,1);
+ assert.equal((await api('creator_lists/'+l.id,{method:'DELETE',data:{version:l.version}})).status,422);
+ assert.equal((await api('creator_lists/'+l.id,{method:'DELETE',data:{version:l.version,confirm:true}})).status,200);
+ assert.equal((await api('creators/'+c.id)).status,200);assert.equal((await api('creators?list_id='+l.id)).status,404);
+}));
+test('Creator Lists support multiple memberships and atomic validation',()=>setup(async({login})=>{
+ const api=await login(),c=(await api('creators',{method:'POST',data:{name:'Shared'}})).data;
+ const a=(await api('creator_lists',{method:'POST',data:{name:'A'}})).data,b=(await api('creator_lists',{method:'POST',data:{name:'B'}})).data;
+ assert.equal((await api('creator_lists',{method:'POST',data:{name:' a '}})).status,409);
+ assert.equal((await api('creator_lists/'+a.id+'/members',{method:'POST',data:{version:1,operation:'add',creator_ids:[c.id,'missing']}})).status,404);
+ assert.equal((await api('creators?list_id='+a.id)).data.total,0);
+ for(const list of [a,b])assert.equal((await api('creator_lists/'+list.id+'/members',{method:'POST',data:{version:1,operation:'add',creator_ids:[c.id]}})).status,200);
+ assert.equal((await api('creator_lists/'+a.id+'/members',{method:'POST',data:{version:2,operation:'remove',creator_ids:[c.id]}})).status,200);
+ assert.equal((await api('creators?list_id='+a.id)).data.total,0);assert.equal((await api('creators?list_id='+b.id)).data.total,1);
+}));
