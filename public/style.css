@@ -46,3 +46,5 @@ input[data-select-creator],input[data-select-page]{width:16px;height:16px;accent
 
 .list-tools{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto}.list-tools h2{margin-right:0;flex-shrink:0;white-space:nowrap}.list-tools>[data-back-lists]{flex-shrink:0}.creator-action-row{flex:0 0 auto;overflow:visible}
 
+.creator-list-heading{display:flex;align-items:center;gap:18px}.creator-list-heading h1{margin:0}.list-tools .creator-action-row{margin-left:auto}.list-tools #search-live{flex:0 0 auto;display:flex;gap:8px;align-items:center}
+
