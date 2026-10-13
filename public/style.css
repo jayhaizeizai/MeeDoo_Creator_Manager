@@ -44,3 +44,5 @@ input[data-select-creator],input[data-select-page]{width:16px;height:16px;accent
 
 .list-tools{align-items:center}.creator-action-row{display:flex;align-items:center;gap:12px;flex-basis:100%;flex-wrap:nowrap;overflow-x:auto;padding:4px 0}.creator-action-row>*{flex-shrink:0;white-space:nowrap}.creator-action-row [data-selection-error]:empty{display:none}
 
+.list-tools{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto}.list-tools h2{margin-right:0;flex-shrink:0;white-space:nowrap}.list-tools>[data-back-lists]{flex-shrink:0}.creator-action-row{flex:0 0 auto;overflow:visible}
+
