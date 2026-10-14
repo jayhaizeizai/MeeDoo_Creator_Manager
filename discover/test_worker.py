@@ -33,6 +33,12 @@ class SearchTests(unittest.TestCase):
   self.assertEqual(self.db.execute('SELECT count(*) FROM discover_hits').fetchone()[0],3)
   sources=[json.loads(r[0])['source'] for r in self.db.execute('SELECT payload FROM discover_hits')]
   self.assertEqual(sources,['instagram_profiles','instagram_hashtag','instagram_hashtag'])
+ def test_explicit_hashtag_no_posts_is_empty_not_failure(self):
+  self.j['search_state']=json.dumps({'tiktok':{'done':True},'instagram':{'done':True},'instagram_hashtag':{'done':False,'cursor':1,'pages':0,'query':'fashionformeandmydog'}})
+  e=RuntimeError('http_404');e.response={'success':False,'message':'No posts found'}
+  with patch.object(worker,'scrape',side_effect=e):worker.search(self.db,self.j,'fake')
+  state=json.loads(self.db.execute('SELECT search_state FROM discover_jobs').fetchone()[0]);self.assertEqual(state['instagram_hashtag']['reason'],'no_results')
+  self.assertEqual(self.db.execute('SELECT count(*) FROM discover_pages').fetchone()[0],1)
  def test_frozen_policy_integrity(self):
   self.assertEqual(hashlib.sha256(worker.CONFIG['prompt'].encode()).hexdigest(),worker.CONFIG['sha256'])
  def test_numeric_tiktok_end_and_instagram_null_next_page(self):

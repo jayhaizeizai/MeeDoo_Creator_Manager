@@ -37,7 +37,9 @@ def search(db,j,key):
    else:path='/v1/instagram/search/hashtag';params={'hashtag':s['query'],'media_type':'all','cursor':str(cursor)}
    try:response=scrape(path,params,key)
    except Exception as e:
-    s['done']=True;s['reason']='provider_error';s['error']=str(e)[:100];db.execute('UPDATE discover_jobs SET search_state=?,updated_at=? WHERE id=?',(json.dumps(state),stamp(),j['id']));db.commit();continue
+    if channel=='instagram_hashtag' and str(e)=='http_404' and getattr(e,'response',{}).get('message')=='No posts found':response=e.response
+    else:
+     s['done']=True;s['reason']='provider_error';s['error']=str(e)[:100];db.execute('UPDATE discover_jobs SET search_state=?,updated_at=? WHERE id=?',(json.dumps(state),stamp(),j['id']));db.commit();continue
    items=extract(channel,response);fresh=0;saved=0
    with db:
     db.execute('INSERT OR REPLACE INTO discover_pages VALUES(?,?,?,?)',(j['id'],channel,str(cursor),json.dumps(response)))

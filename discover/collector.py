@@ -35,7 +35,10 @@ def api(url,headers,payload=None):
             return result
         except HTTPError as exc:
             if exc.code not in (429,500,502,503,504) or attempt==2:
-                raise RuntimeError('http_'+str(exc.code)) from None
+                error=RuntimeError('http_'+str(exc.code))
+                try: error.response=json.loads(exc.read())
+                except (ValueError,OSError): error.response={}
+                raise error from None
         except (URLError,TimeoutError):
             if attempt==2: raise RuntimeError('network_timeout') from None
         time.sleep(2**(attempt+1))
