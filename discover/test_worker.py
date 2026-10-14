@@ -47,6 +47,11 @@ class SearchTests(unittest.TestCase):
    worker.search(self.db,self.j,'fake');self.assertEqual(call.call_count,2)
    self.assertNotIn('cursor',call.call_args_list[0].args[1]);self.assertEqual(call.call_args_list[1].args[1]['cursor'],'opaque-token')
   self.assertEqual(self.db.execute('SELECT count(*) FROM discover_candidates').fetchone()[0],1)
+ def test_popular_missing_topic(self):
+  self.j['search_state']=json.dumps({'tiktok':{'done':True},'instagram':{'done':True},'instagram_popular':{'done':False,'cursor':None,'pages':0}})
+  e=RuntimeError('http_404');e.response={'message':'Instagram does not have a popular page for that query'}
+  with patch.object(worker,'scrape',side_effect=e):worker.search(self.db,self.j,'fake')
+  state=json.loads(self.db.execute('SELECT search_state FROM discover_jobs').fetchone()[0]);self.assertEqual(state['instagram_popular']['reason'],'no_results')
  def test_frozen_policy_integrity(self):
   self.assertEqual(hashlib.sha256(worker.CONFIG['prompt'].encode()).hexdigest(),worker.CONFIG['sha256'])
  def test_numeric_tiktok_end_and_instagram_null_next_page(self):
