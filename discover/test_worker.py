@@ -39,6 +39,14 @@ class SearchTests(unittest.TestCase):
   with patch.object(worker,'scrape',side_effect=e):worker.search(self.db,self.j,'fake')
   state=json.loads(self.db.execute('SELECT search_state FROM discover_jobs').fetchone()[0]);self.assertEqual(state['instagram_hashtag']['reason'],'no_results')
   self.assertEqual(self.db.execute('SELECT count(*) FROM discover_pages').fetchone()[0],1)
+ def test_popular_opaque_cursor_and_has_more(self):
+  self.j['limit_count']=5000
+  self.j['search_state']=json.dumps({'tiktok':{'done':True},'instagram':{'done':True},'instagram_popular':{'done':False,'cursor':None,'pages':0}})
+  responses=[{'posts':[{'id':'a','owner':{'username':'dog'}}],'cursor':'opaque-token','has_more':True},{'posts':[{'id':'b','owner':{'username':'dog'}}],'cursor':'unused','has_more':False}]
+  with patch.object(worker,'scrape',side_effect=responses) as call:
+   worker.search(self.db,self.j,'fake');self.assertEqual(call.call_count,2)
+   self.assertNotIn('cursor',call.call_args_list[0].args[1]);self.assertEqual(call.call_args_list[1].args[1]['cursor'],'opaque-token')
+  self.assertEqual(self.db.execute('SELECT count(*) FROM discover_candidates').fetchone()[0],1)
  def test_frozen_policy_integrity(self):
   self.assertEqual(hashlib.sha256(worker.CONFIG['prompt'].encode()).hexdigest(),worker.CONFIG['sha256'])
  def test_numeric_tiktok_end_and_instagram_null_next_page(self):

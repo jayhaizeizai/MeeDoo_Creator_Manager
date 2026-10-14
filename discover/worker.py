@@ -9,7 +9,7 @@ def connect(path):
  db=sqlite3.connect(path,timeout=30);db.row_factory=sqlite3.Row;db.execute('PRAGMA busy_timeout=30000');return db
 def stamp():return time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())
 def extract(platform,response):
- items=response.get('search_item_list',response.get('aweme_list',[])) if platform=='tiktok' else response.get({'instagram_profiles':'profiles','instagram_hashtag':'posts'}.get(platform,'reels'),[])
+ items=response.get('search_item_list',response.get('aweme_list',[])) if platform=='tiktok' else response.get({'instagram_profiles':'profiles','instagram_hashtag':'posts','instagram_popular':'posts'}.get(platform,'reels'),[])
  out=[]
  for item in items:
   media=item.get('aweme_info',item) if platform=='tiktok' else item
@@ -24,7 +24,7 @@ def extract(platform,response):
  return out
 def search(db,j,key):
  state=json.loads(j['search_state']);platforms=json.loads(j['platforms']);count=db.execute('SELECT count(*) FROM discover_hits WHERE job_id=?',(j['id'],)).fetchone()[0]
- channels=platforms+[c for c in ('instagram_profiles','instagram_hashtag') if c in state and 'instagram' in platforms]
+ channels=platforms+[c for c in ('instagram_profiles','instagram_hashtag','instagram_popular') if c in state and 'instagram' in platforms]
  for p in platforms:state.setdefault(p,{'cursor':0 if p=='tiktok' else 1,'done':False,'pages':0,'empty_new_pages':0})
  while count<j['limit_count'] and any(not state[p]['done'] for p in channels):
   for channel in channels:
@@ -33,6 +33,9 @@ def search(db,j,key):
    cursor=s['cursor'];params={'query':j['query']}
    if channel=='tiktok':path='/v1/tiktok/search/keyword';params.update(cursor=cursor,sort_by='relevance',region='US')
    elif channel=='instagram':path='/v2/instagram/reels/search';params['page']=cursor
+   elif channel=='instagram_popular':
+    path='/v1/instagram/search/popular'
+    if cursor:params['cursor']=cursor
    elif channel=='instagram_profiles':path='/v1/instagram/search/profiles'
    else:path='/v1/instagram/search/hashtag';params={'hashtag':s['query'],'media_type':'all','cursor':str(cursor)}
    try:response=scrape(path,params,key)
@@ -50,11 +53,11 @@ def search(db,j,key):
      db.execute('INSERT INTO discover_hits VALUES(?,?,?,?,?,?)',(j['id'],count,platform,source_id,account,json.dumps({'source':channel,'item':item})))
      if handle:db.execute('INSERT OR IGNORE INTO discover_candidates(job_id,account_key,platform,handle) VALUES(?,?,?,?)',(j['id'],account,platform,handle))
     s['pages']+=1;s['results']=s.get('results',0)+saved;s['empty_new_pages']=s.get('empty_new_pages',0)+1 if not fresh else 0
-    next_cursor=response.get('cursor') if channel in ('tiktok','instagram_hashtag') else response.get('next_page',cursor+1)
+    next_cursor=response.get('cursor') if channel in ('tiktok','instagram_hashtag','instagram_popular') else response.get('next_page',cursor+1)
     if not items:s.update(done=True,reason='no_results')
     elif channel=='instagram_profiles':s.update(done=True,reason='ranked_results_complete')
     elif channel in ('instagram','instagram_hashtag') and int(cursor)>=11:s.update(done=True,reason='provider_page_limit')
-    elif next_cursor is None or str(next_cursor)==str(cursor) or (platform=='tiktok' and response.get('has_more') in (False,0,'0')):s.update(done=True,reason='end_of_results')
+    elif next_cursor is None or str(next_cursor)==str(cursor) or (channel in ('tiktok','instagram_popular') and response.get('has_more') in (False,0,'0')):s.update(done=True,reason='end_of_results')
     elif s['empty_new_pages']>=3:s.update(done=True,reason='repeated_results')
     else:s['cursor']=next_cursor
     db.execute('UPDATE discover_jobs SET search_state=?,updated_at=? WHERE id=?',(json.dumps(state),stamp(),j['id']))

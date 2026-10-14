@@ -27,7 +27,7 @@ test('Instagram sources and legacy extension preserve existing assessments',()=>
  s.db.prepare("UPDATE discover_jobs SET state='completed',search_state=? WHERE id=?").run(JSON.stringify({instagram:{done:true,pages:11},tiktok:{done:true,pages:7}}),j.id);
  s.db.prepare("INSERT INTO discover_candidates(job_id,account_key,platform,handle,status,selected,result_json) VALUES(?,?,?,?,?,?,?)").run(j.id,'instagram--existing','instagram','existing','done',1,'{"summary":"unchanged"}');
  assert.throws(()=>d.extend({...actor,tenant_key:'other'},j.id),e=>e.status===404);
- const extended=d.extend(actor,j.id);assert.equal(extended.state,'queued');assert.equal(extended.search_state.instagram.pages,11);assert.equal(extended.total,1);assert.equal(extended.passed,1);
+ const extended=d.extend(actor,j.id);assert.equal(extended.search_state.instagram_popular.cursor,null);assert.equal(extended.state,'queued');assert.equal(extended.search_state.instagram.pages,11);assert.equal(extended.total,1);assert.equal(extended.passed,1);
  assert.equal(d.detail(actor,j.id).items[0].result.summary,'unchanged');
  s.db.prepare("UPDATE discover_jobs SET state='completed' WHERE id=?").run(j.id);assert.equal(d.extend(actor,j.id).state,'completed');
  const custom=d.create(actor,{query:'dogs',hashtag:'#DogFashion',list_name:'custom'});assert.equal(custom.search_state.instagram_hashtag.query,'DogFashion');s.close();
