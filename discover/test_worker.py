@@ -24,5 +24,10 @@ class SearchTests(unittest.TestCase):
   self.assertEqual(s['tiktok']['reason'],'provider_error');self.assertEqual(s['instagram']['reason'],'no_results')
  def test_frozen_policy_integrity(self):
   self.assertEqual(hashlib.sha256(worker.CONFIG['prompt'].encode()).hexdigest(),worker.CONFIG['sha256'])
+ def test_numeric_tiktok_end_and_instagram_null_next_page(self):
+  tt={'search_item_list':[{'aweme_info':{'aweme_id':'1','author':{'unique_id':'dog'}}}],'cursor':30,'has_more':0}
+  ig={'reels':[{'id':'2','owner':{'username':'dog'}}],'next_page':None}
+  with patch.object(worker,'scrape',side_effect=[tt,ig]) as call:worker.search(self.db,self.j,'fake');self.assertEqual(call.call_count,2)
+  s=json.loads(self.db.execute('SELECT search_state FROM discover_jobs').fetchone()[0]);self.assertTrue(all(v['done'] for v in s.values()))
 
 if __name__=='__main__':unittest.main()

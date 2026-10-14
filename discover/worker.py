@@ -44,10 +44,10 @@ def search(db,j,key):
      db.execute('INSERT INTO discover_hits VALUES(?,?,?,?,?,?)',(j['id'],count,platform,source_id,account,json.dumps(item)))
      if handle:db.execute('INSERT OR IGNORE INTO discover_candidates(job_id,account_key,platform,handle) VALUES(?,?,?,?)',(j['id'],account,platform,handle))
     s['pages']+=1;s['empty_new_pages']=s['empty_new_pages']+1 if not fresh else 0
-    next_cursor=response.get('cursor') if platform=='tiktok' else cursor+1
+    next_cursor=response.get('cursor') if platform=='tiktok' else response.get('next_page',cursor+1)
     if not items:s.update(done=True,reason='no_results')
     elif platform=='instagram' and cursor>=11:s.update(done=True,reason='provider_page_limit')
-    elif platform=='tiktok' and (next_cursor is None or str(next_cursor)==str(cursor) or response.get('has_more') is False):s.update(done=True,reason='end_of_results')
+    elif next_cursor is None or str(next_cursor)==str(cursor) or (platform=='tiktok' and response.get('has_more') in (False,0,'0')):s.update(done=True,reason='end_of_results')
     elif s['empty_new_pages']>=3:s.update(done=True,reason='repeated_results')
     else:s['cursor']=next_cursor
     db.execute('UPDATE discover_jobs SET search_state=?,updated_at=? WHERE id=?',(json.dumps(state),stamp(),j['id']))
