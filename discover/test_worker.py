@@ -22,6 +22,17 @@ class SearchTests(unittest.TestCase):
   with patch.object(worker,'scrape',side_effect=[RuntimeError('http_503'),{'reels':[]}]):worker.search(self.db,self.j,'fake')
   s=json.loads(self.db.execute('SELECT search_state FROM discover_jobs').fetchone()[0])
   self.assertEqual(s['tiktok']['reason'],'provider_error');self.assertEqual(s['instagram']['reason'],'no_results')
+ def test_new_sources_deduplicate_accounts_and_preserve_provenance(self):
+  self.j['limit_count']=5000
+  self.j['search_state']=json.dumps({'tiktok':{'done':True},'instagram':{'done':True},'instagram_profiles':{'done':False,'cursor':1,'pages':0},'instagram_hashtag':{'done':False,'cursor':1,'pages':0,'query':'fashionformeandmydog'}})
+  responses=[{'profiles':[{'id':'a','username':'DOG'}],'cursor':None},{'posts':[{'id':'post','owner':{'username':'dog'}}],'cursor':'2'},{'posts':[{'id':'other','owner':{'username':'second'}}],'cursor':None}]
+  with patch.object(worker,'scrape',side_effect=responses) as call:
+   worker.search(self.db,self.j,'fake')
+   self.assertEqual(call.call_count,3);self.assertEqual(call.call_args_list[0].args[0],'/v1/instagram/search/profiles');self.assertEqual(call.call_args_list[2].args[1]['cursor'],'2')
+  self.assertEqual(self.db.execute('SELECT count(*) FROM discover_candidates').fetchone()[0],2)
+  self.assertEqual(self.db.execute('SELECT count(*) FROM discover_hits').fetchone()[0],3)
+  sources=[json.loads(r[0])['source'] for r in self.db.execute('SELECT payload FROM discover_hits')]
+  self.assertEqual(sources,['instagram_profiles','instagram_hashtag','instagram_hashtag'])
  def test_frozen_policy_integrity(self):
   self.assertEqual(hashlib.sha256(worker.CONFIG['prompt'].encode()).hexdigest(),worker.CONFIG['sha256'])
  def test_numeric_tiktok_end_and_instagram_null_next_page(self):

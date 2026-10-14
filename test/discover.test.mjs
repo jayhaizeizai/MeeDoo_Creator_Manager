@@ -20,3 +20,15 @@ test('Discover validates limits and profile identities',()=>{
  const s=new Store(),d=discover(s);assert.throws(()=>d.create(actor,{query:'x',limit:5001,list_name:'x'}));assert.throws(()=>d.create(actor,{query:'x',platforms:['invalid'],list_name:'x'}));
  assert.equal(canonical('https://www.tiktok.com/@Foo?x=1'),'tiktok--foo');assert.equal(canonical('https://evil.test/foo'),null);s.close();
 });
+
+test('Instagram sources and legacy extension preserve existing assessments',()=>{
+ const s=new Store(),d=discover(s),j=d.create(actor,{query:'Fashion for Me and My Dog',list_name:'batch'});
+ assert.equal(j.search_state.instagram_hashtag.query,'fashionformeandmydog');assert.equal(j.search_state.instagram_profiles.done,false);
+ s.db.prepare("UPDATE discover_jobs SET state='completed',search_state=? WHERE id=?").run(JSON.stringify({instagram:{done:true,pages:11},tiktok:{done:true,pages:7}}),j.id);
+ s.db.prepare("INSERT INTO discover_candidates(job_id,account_key,platform,handle,status,selected,result_json) VALUES(?,?,?,?,?,?,?)").run(j.id,'instagram--existing','instagram','existing','done',1,'{"summary":"unchanged"}');
+ assert.throws(()=>d.extend({...actor,tenant_key:'other'},j.id),e=>e.status===404);
+ const extended=d.extend(actor,j.id);assert.equal(extended.state,'queued');assert.equal(extended.search_state.instagram.pages,11);assert.equal(extended.total,1);assert.equal(extended.passed,1);
+ assert.equal(d.detail(actor,j.id).items[0].result.summary,'unchanged');
+ s.db.prepare("UPDATE discover_jobs SET state='completed' WHERE id=?").run(j.id);assert.equal(d.extend(actor,j.id).state,'completed');
+ const custom=d.create(actor,{query:'dogs',hashtag:'#DogFashion',list_name:'custom'});assert.equal(custom.search_state.instagram_hashtag.query,'DogFashion');s.close();
+});
