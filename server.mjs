@@ -65,7 +65,7 @@ export function createApp(env=process.env, upstream=fetch){
    }
    if(url.pathname.startsWith('/api/'))return await backend.handle(req,res,url,sess,send);
    if(req.method!=='GET'&&req.method!=='HEAD')return send(405,{error:'method_not_allowed'});
-   const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/workspace.js':['workspace.js','text/javascript'],'/import-review.mjs':['import-review.mjs','text/javascript'],'/mail-library.js':['mail-library.js','text/javascript'],'/mail-body.css':['mail-body.css','text/css'],'/mail-view.mjs':['mail-view.mjs','text/javascript'],'/vendor/dompurify.mjs':['vendor/dompurify.mjs','text/javascript'],'/style.css':['style.css','text/css']};
+   const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/discover.js':['discover.js','text/javascript'],'/workspace.js':['workspace.js','text/javascript'],'/import-review.mjs':['import-review.mjs','text/javascript'],'/mail-library.js':['mail-library.js','text/javascript'],'/mail-body.css':['mail-body.css','text/css'],'/mail-view.mjs':['mail-view.mjs','text/javascript'],'/vendor/dompurify.mjs':['vendor/dompurify.mjs','text/javascript'],'/style.css':['style.css','text/css']};
    const asset=assets[url.pathname];if(!asset)return send(404,{error:'not_found'});
    const body=await readFile(new URL('./public/'+asset[0],import.meta.url));res.writeHead(200,{'Content-Type':asset[1]+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:body);
   }catch{send(500,{error:'internal_error'});}

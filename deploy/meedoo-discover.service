@@ -1,0 +1,21 @@
+[Unit]
+Description=MeeDoo Discover worker
+After=network.target
+[Service]
+Type=simple
+User=meedoo-creator
+Group=meedoo-creator
+WorkingDirectory=/opt/meedoo-creator/current
+EnvironmentFile=/etc/meedoo-creator.env
+EnvironmentFile=/etc/meedoo-discover.env
+ExecStart=/usr/bin/flock -n /var/lib/meedoo-creator/discover.lock /usr/bin/node deploy/discover-worker.mjs
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/meedoo-creator
+UMask=0077
+[Install]
+WantedBy=multi-user.target
