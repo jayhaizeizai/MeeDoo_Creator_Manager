@@ -11,15 +11,18 @@ export function createApp(env=process.env, upstream=fetch){
  if(env.NODE_ENV==='production'&&!env.DB_PATH)throw Error('Production requires persistent DB_PATH');
  const backend=createBackend({...env,APP_ORIGIN:origin},upstream);
  const admins=(env.LARK_ADMIN_OPEN_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const reviewerIds=(env.LARK_REVIEWER_OPEN_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const reviewerEmails=(env.LARK_REVIEWER_EMAILS||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+ const isReviewer=u=>reviewerIds.includes(u.open_id)||reviewerEmails.includes(String(u.email||'').toLowerCase());
  const sessions=new Map(), flows=new Map();
  const ids=(env.LARK_ALLOWED_OPEN_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
  const tenants=(env.LARK_ALLOWED_TENANTS||'').split(',').map(x=>x.trim()).filter(Boolean);
- const ready=!!(env.LARK_APP_ID&&env.LARK_APP_SECRET&&tenants.length&&ids.length);
+ const ready=!!(env.LARK_APP_ID&&env.LARK_APP_SECRET&&tenants.length&&(ids.length||reviewerIds.length||reviewerEmails.length));
  const cookie=(name,value,age)=>`${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${secure?'; Secure':''}`;
  const cookieName=secure?'__Host-meedoo_session':'meedoo_session';
  const flowName=secure?'__Host-meedoo_flow':'meedoo_flow';
  const callback=origin+'/auth/lark/callback';
- const allowed=u=>!!u.open_id&&ids.includes(u.open_id)&&!!u.tenant_key&&tenants.includes(u.tenant_key);
+ const allowed=u=>!!u.open_id&&(ids.includes(u.open_id)||isReviewer(u))&&!!u.tenant_key&&tenants.includes(u.tenant_key);
  async function jsonFetch(url,opts){const r=await upstream(url,{...opts,signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('Provider unavailable');return r.json();}
  const server=http.createServer(async(req,res)=>{
   const now=Date.now();for(const [k,v]of sessions)if(v.exp<now)sessions.delete(k);for(const[k,v]of flows)if(v.exp<now)flows.delete(k);
@@ -34,6 +37,10 @@ export function createApp(env=process.env, upstream=fetch){
    if(url.pathname==='/healthz')return send(200,{status:'ok'});
    if(url.pathname==='/api/auth/status')return send(200,{configured:ready});
    if(url.pathname==='/api/session')return sess?send(200,{user:sess.user,csrf:sess.csrf}):send(401,{error:'authentication_required'});
+   if(sess?.user.role==='reviewer'&&!['/review','/review.js','/review.css','/api/session','/auth/logout'].includes(url.pathname)&&!url.pathname.startsWith('/api/creator-review')){
+    if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/auth/'))return send(403,{error:'review_only'});
+    return redirect('/review');
+   }
    if(url.pathname==='/auth/google/callback'&&req.method==='GET'){
     try{await backend.integrations.finish(url,sess);return redirect('/?integration=google-connected');}
     catch{return redirect('/?integration=google-error');}
@@ -55,8 +62,8 @@ export function createApp(env=process.env, upstream=fetch){
      const info=await jsonFetch('https://open.larksuite.com/open-apis/authen/v1/user_info',{headers:{Authorization:`Bearer ${token.access_token}`}});
      if(info.code!==0||!allowed(info.data||{}))return redirect('/?auth=denied');
      const u=info.data,sid=rand();sessions.delete(hash(cookies[cookieName]||''));
-     sessions.set(hash(sid),{exp:now+8*3600000,user:{name:u.name||'Team member',open_id:u.open_id,tenant_key:u.tenant_key,role:admins.includes(u.open_id)?'admin':'operator'},csrf:rand()});
-     res.setHeader('Set-Cookie',[cookie(flowName,'',0),cookie(cookieName,sid,28800)]);return redirect('/');
+     sessions.set(hash(sid),{exp:now+8*3600000,user:{name:u.name||'Team member',open_id:u.open_id,tenant_key:u.tenant_key,role:isReviewer(u)?'reviewer':admins.includes(u.open_id)?'admin':'operator'},csrf:rand()});
+     res.setHeader('Set-Cookie',[cookie(flowName,'',0),cookie(cookieName,sid,28800)]);return redirect(isReviewer(u)?'/review':'/');
     }catch{return redirect('/?auth=provider-error');}
    }
    if(url.pathname==='/auth/logout'&&req.method==='POST'){
@@ -65,7 +72,7 @@ export function createApp(env=process.env, upstream=fetch){
    }
    if(url.pathname.startsWith('/api/'))return await backend.handle(req,res,url,sess,send);
    if(req.method!=='GET'&&req.method!=='HEAD')return send(405,{error:'method_not_allowed'});
-   const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/discover.js':['discover.js','text/javascript'],'/workspace.js':['workspace.js','text/javascript'],'/import-review.mjs':['import-review.mjs','text/javascript'],'/mail-library.js':['mail-library.js','text/javascript'],'/mail-body.css':['mail-body.css','text/css'],'/mail-view.mjs':['mail-view.mjs','text/javascript'],'/vendor/dompurify.mjs':['vendor/dompurify.mjs','text/javascript'],'/style.css':['style.css','text/css']};
+   const assets={'/rich-editor.js':['rich-editor.js','text/javascript'],'/outreach.js':['outreach.js','text/javascript'],'/creator-table.mjs':['creator-table.mjs','text/javascript'],'/review':['review.html','text/html'],'/review.js':['review.js','text/javascript'],'/review.css':['review.css','text/css'],'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/discover.js':['discover.js','text/javascript'],'/creator-funnel.mjs':['creator-funnel.mjs','text/javascript'],'/workspace.js':['workspace.js','text/javascript'],'/import-review.mjs':['import-review.mjs','text/javascript'],'/mail-library.js':['mail-library.js','text/javascript'],'/mail-body.css':['mail-body.css','text/css'],'/mail-view.mjs':['mail-view.mjs','text/javascript'],'/vendor/dompurify.mjs':['vendor/dompurify.mjs','text/javascript'],'/style.css':['style.css','text/css']};
    const asset=assets[url.pathname];if(!asset)return send(404,{error:'not_found'});
    const body=await readFile(new URL('./public/'+asset[0],import.meta.url));res.writeHead(200,{'Content-Type':asset[1]+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:body);
   }catch{send(500,{error:'internal_error'});}

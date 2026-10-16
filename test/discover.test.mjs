@@ -10,7 +10,9 @@ test('Discover persists all outcomes, deduplicates published creators and scopes
  assert.throws(()=>d.get({...actor,tenant_key:'other'},j.id),e=>e.status===404);
  assert.throws(()=>d.get({...actor,role:'operator',open_id:'other'},j.id),e=>e.status===404);
  for(const [handle,selected] of [['yes',1],['no',0]])s.db.prepare("INSERT INTO discover_candidates(job_id,account_key,platform,handle,status,selected,result_json) VALUES(?,?,?,?,?,?,?)").run(j.id,'tiktok--'+handle,'tiktok',handle,'done',selected,JSON.stringify({summary:'test',criteria:[]}));
+ s.db.prepare('UPDATE discover_candidates SET source_json=? WHERE job_id=? AND selected=1').run(JSON.stringify({profile:{nickname:'Real Name',signature:'Bookings: creator@example.com'}}),j.id);
  d.publish(j.id);d.publish(j.id);assert.equal(s.list('creators','tenant').length,1);assert.equal(s.get(j.list_id,'tenant').creator_ids.length,1);
+ assert.equal(s.list('creators','tenant')[0].name,'Real Name');assert.equal(s.list('creators','tenant')[0].email,'creator@example.com');
  assert.equal(d.detail(actor,j.id).total,2);assert.equal(d.detail(actor,j.id).pass_rate,.5);assert.equal(d.detail(actor,j.id).new_creators,1);
  assert.equal(d.detail(actor,j.id,0,'selected').items.length,1);assert.match(d.csv(actor,j.id),/tiktok.com\/@no/);
  s.db.prepare("UPDATE discover_jobs SET state='completed' WHERE id=?").run(j.id);

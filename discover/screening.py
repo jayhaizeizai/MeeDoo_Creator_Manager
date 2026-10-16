@@ -1,4 +1,5 @@
-import base64,json
+import base64,json,time
+from followers import follower_count,follower_criterion,validate_visual_evidence
 from pathlib import Path
 from collector import source_for,preview,scrape,url_list,save,api
 CONFIG=json.loads(Path(__file__).with_name('policy.json').read_text(encoding='utf-8'))
@@ -15,9 +16,23 @@ def source_for(platform,handle,key,folder):
 def screen(pair,sk,ok,root):
     name='--'.join(pair);folder=root/name;folder.mkdir(parents=True,exist_ok=True)
     result_path=folder/'assessment.json'
-    if result_path.exists(): return name,json.loads(result_path.read_text(encoding='utf-8'))
+    if result_path.exists():
+        cached=json.loads(result_path.read_text(encoding='utf-8'))
+        if cached.get('rule_version')==CONFIG['version']:return name,cached
     try:
+        # Reuse a versioned profile lookup across retries, never a search-result count.
+        fp=folder/'followers.json'
+        follower_data=json.loads(fp.read_text()) if fp.exists() else {}
+        if follower_data.get('rule_version')!=CONFIG['version']:
+            response=scrape('/v1/'+pair[0]+'/profile',{'handle':pair[1]},sk)
+            follower_data={'rule_version':CONFIG['version'],'count':follower_count(pair[0],response),'checked_at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'source':'profile_api'}
+            save(fp,follower_data)
+        follower=follower_criterion(follower_data['count'])
+        if follower['status']!='pass':
+            result={'selected':0,'rule_version':CONFIG['version'],'summary':follower['explanation'],'criteria':[follower],'followers':follower_data['count'],'followers_checked_at':follower_data['checked_at'],'followers_source':'profile_api','visual_assessed':False,'limitations':['粉丝数门槛未通过，未调用视觉模型。']}
+            save(result_path,result);return name,result
         source=source_for(*pair,sk,folder)
+        source['followers']=follower_data;save(folder/'source.json',source)
         if 'avatar_checked' not in source or source.get('avatar_error'):
             try:
                 response=scrape('/v1/'+pair[0]+'/profile',{'handle':pair[1]},sk)
@@ -49,20 +64,15 @@ def screen(pair,sk,ok,root):
         except json.JSONDecodeError:
             (folder/'model-output.txt').write_text(text,encoding='utf-8')
             result=json.JSONDecoder().raw_decode(text[text.index('{'):])[0]
-        assert len(result['criteria'])==8 and {c['criterion'] for c in result['criteria']}==set(CRITERIA)
-        for c in result['criteria']:
-            early={i for i in indices if 1<=i<=12}
-            allowed=early if c['criterion'] in ('small_dog','owner_visible','fit_body') else early|({0}&indices)
-            if c['status']=='pass' and c['criterion']!='USA' and (not set(c['evidence_posts']) or not set(c['evidence_posts'])<=allowed):
-                c['status']='unknown';c['explanation']='前12条的有效肯定证据不足；第13–24条不能补足通过条件。'+c['explanation']
-            if c['criterion']=='USA' and c['status']=='pass' and any(i>12 for i in c['evidence_posts']):
-                c['status']='unknown';c['explanation']='肯定所在地的依据超出前12条，按所在地未知处理。'
+        result=validate_visual_evidence(result,indices,CRITERIA)
         vals={c['criterion']:c['status'] for c in result['criteria']}
-        result['selected']=int(result['account_type']!='brand' and vals['USA']!='fail' and all(vals[k]=='pass' for k in CRITERIA if k!='USA'))
+        result['selected']=int(vals['USA']!='fail' and all(vals[k]=='pass' for k in CRITERIA if k!='USA') and follower['status']=='pass')
+        result['criteria'].append(follower)
+        result.update(rule_version=CONFIG['version'],followers=follower_data['count'],followers_checked_at=follower_data['checked_at'],followers_source='profile_api',visual_assessed=True)
         result['avatar_used']=bool(source.get('avatar_image'));result['preview_count']=len(indices-{0});result['usage']=response.get('usage',{})
         result['source_date']=source.get('retrieved_at','');save(result_path,result)
         return name,result
     except Exception as exc:
-        result={'selected':0,'error':str(exc)[:100] if isinstance(exc,RuntimeError) else type(exc).__name__}
+        result={'selected':0,'rule_version':CONFIG['version'],'error':str(exc)[:100] if isinstance(exc,RuntimeError) else type(exc).__name__}
         save(folder/'error.json',result);return name,result
 
