@@ -2,6 +2,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createBackend} from '../lib/api.mjs';
 const actor={role:'admin',open_id:'admin',tenant_key:'tenant'},origin='https://test.example';
+test('successful reply archives only same-round drafts; failures preserve them',async()=>{
+ for(const mode of ['ok','403','timeout']){
+  const h=await setup();try{
+   const make=(extra={})=>h.backend.store.write(actor,'agent_runs',{thread_id:h.draft.thread_id,thread_content:h.draft.thread_content,status:'suggestion',draft:'Older reply',...extra});
+   const old=make(),newRound=make({thread_content:'new-inbound'}),otherThread=make({thread_id:'other-thread'});
+   const p=(await h.preview()).data;h.mode(mode);await h.send(p);
+   const saved=h.backend.store.get(old.id,'tenant');assert.equal(saved.status,mode==='ok'?'reviewed':'suggestion');
+   assert.equal(saved.draft,'Older reply');assert.equal(h.backend.store.get(newRound.id,'tenant').status,'suggestion');assert.equal(h.backend.store.get(otherThread.id,'tenant').status,'suggestion');
+   if(mode==='ok'){assert.equal(saved.superseded_by,h.draft.id);assert.equal((await h.call('agent_runs/'+old.id+'/send-preview',{version:saved.version})).data.error,'draft_archived');}
+  }finally{h.close();}
+ }
+});
 async function setup(){
  let mode='ok',scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',sends=[];
  const env={APP_ORIGIN:origin,GMAIL_REQUEST_INTERVAL_MS:'0',WORK_EMAIL:'work@example.test',GOOGLE_CLIENT_ID:'test',GOOGLE_CLIENT_SECRET:'test',TOKEN_ENCRYPTION_KEY:'11'.repeat(32)};
