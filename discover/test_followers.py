@@ -2,7 +2,7 @@ import unittest
 from followers import follower_count,follower_criterion,validate_visual_evidence
 class RulesTests(unittest.TestCase):
  def test_boundaries_and_missing(self):
-  for n,status in [(None,'unknown'),(0,'fail'),(2999,'fail'),(3000,'pass'),(100000,'pass'),(100001,'fail')]:self.assertEqual(follower_criterion(n)['status'],status)
+  for n,status in [(None,'unknown'),(0,'fail'),(2999,'fail'),(3000,'pass'),(100000,'pass'),(100001,'pass'),(1000000,'pass')]:self.assertEqual(follower_criterion(n)['status'],status)
  def test_profiles(self):
   self.assertEqual(follower_count('tiktok',{'stats':{'followerCount':3000}}),3000)
   self.assertEqual(follower_count('instagram',{'data':{'user':{'edge_followed_by':{'count':100000}}}}),100000)

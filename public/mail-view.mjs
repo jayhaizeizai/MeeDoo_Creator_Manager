@@ -1,3 +1,4 @@
+import {displayMailText} from './mail-display-text.mjs';
 import DOMPurify from './vendor/dompurify.mjs';
 
 const tags=['div','p','br','span','b','strong','i','em','u','s','strike','ul','ol','li','table','thead','tbody','tfoot','tr','td','th','caption','blockquote','a','hr','h1','h2','h3','h4','h5','h6','pre','code','img'];
@@ -11,9 +12,12 @@ export function renderBody(host,message){
  const body=document.createElement('div');shadow.append(body);
  if(message.html_body&&DOMPurify.isSupported){
   // Strict attributes: no CSS, URLs on images, event handlers, forms, frames or SVG.
-  body.append(DOMPurify.sanitize(message.html_body,{ALLOWED_TAGS:tags,ALLOWED_ATTR:['href','title','alt','colspan','rowspan','class'],ALLOW_DATA_ATTR:false,ALLOW_ARIA_ATTR:false,RETURN_DOM_FRAGMENT:true,SANITIZE_NAMED_PROPS:true}));
+  const source=new DOMParser().parseFromString(message.html_body,'text/html');
+  const outlook=source.getElementById('divRplyFwdMsg');if(outlook)outlook.classList.add('outlook-reply-boundary');
+  body.append(DOMPurify.sanitize(source.body.innerHTML,{ALLOWED_TAGS:tags,ALLOWED_ATTR:['href','title','alt','colspan','rowspan','class'],ALLOW_DATA_ATTR:false,ALLOW_ARIA_ATTR:false,RETURN_DOM_FRAGMENT:true,SANITIZE_NAMED_PROPS:true}));
   for(const a of body.querySelectorAll('a')){let safe=false;try{const url=new URL(a.getAttribute('href'));safe=['https:','http:','mailto:'].includes(url.protocol);}catch{}if(!safe)a.removeAttribute('href');else{a.target='_blank';a.rel='noopener noreferrer';a.referrerPolicy='no-referrer';}}
   for(const img of body.querySelectorAll('img')){const placeholder=document.createElement('span');placeholder.className='image-placeholder';placeholder.textContent=img.alt?'图片：'+img.alt:'图片未加载';img.replaceWith(placeholder);}
+  const boundary=body.querySelector('.outlook-reply-boundary');if(boundary){const range=document.createRange();range.setStartBefore(boundary);range.setEnd(body,body.childNodes.length);const tail=document.createElement('div');tail.append(range.extractContents());body.append(tail);foldNode(tail,'展开历史引用');}
   foldTail(body,diagnostic,'展开退信诊断信息');
   for(const quote of body.querySelectorAll('blockquote,.gmail_quote,.yahoo_quoted')){if(quote.closest('details'))continue;foldNode(quote,'展开历史引用');}
   if(!body.textContent.trim()){body.className='plain';body.textContent=message.body||'邮件正文为空或无法显示，请在原邮箱查看。';}
@@ -21,6 +25,7 @@ export function renderBody(host,message){
   body.className='plain';body.textContent=message.body||'正文尚未解析，请在原邮箱查看。';
   foldTail(body,diagnostic,'展开退信诊断信息');foldTail(body,quoted,'展开历史引用');
  }
+ const textNodes=document.createTreeWalker(body,NodeFilter.SHOW_TEXT);let textNode;while((textNode=textNodes.nextNode()))textNode.textContent=displayMailText(textNode.textContent);
  const quotes=[...body.querySelectorAll('details[data-mail-quote]')].filter(q=>!q.parentElement?.closest('details[data-mail-quote]'));
  if(quotes.length){const combined=document.createElement('details'),summary=document.createElement('summary');combined.className='original-quotes';summary.textContent='查看原邮件引用（上方已展示历史会话）';combined.append(summary);const seen=new Set();for(const quote of quotes){const content=document.createElement('div');for(const child of [...quote.childNodes])if(child.nodeName!=='SUMMARY')content.append(child);const key=content.textContent.replace(/\s+/g,' ').trim();if(key&&!seen.has(key)){seen.add(key);combined.append(content);}quote.remove();}if(seen.size)body.append(combined);}
  return shadow;

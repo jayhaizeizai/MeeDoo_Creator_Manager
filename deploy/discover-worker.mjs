@@ -10,7 +10,7 @@ async function tick(){
  if(child)return;
  const j=store.db.prepare("SELECT * FROM discover_jobs WHERE state IN ('queued','searching','analyzing') ORDER BY created_at LIMIT 1").get();if(!j)return;
  if(!env.SCRAPECREATORS_API_KEY||!env.DISCOVER_OPENAI_API_KEY){store.db.prepare("UPDATE discover_jobs SET state='failed',error='discover_keys_missing' WHERE id=?").run(j.id);return;}
- child=spawn(env.DISCOVER_PYTHON||'python3',[fileURLToPath(new URL('../discover/worker.py',import.meta.url)),env.DB_PATH,j.id],{env:{PATH:env.PATH,LANG:'C.UTF-8',PYTHONUNBUFFERED:'1',SCRAPECREATORS_API_KEY:env.SCRAPECREATORS_API_KEY,DISCOVER_OPENAI_API_KEY:env.DISCOVER_OPENAI_API_KEY,DISCOVER_DATA_DIR:env.DISCOVER_DATA_DIR||'/var/lib/meedoo-creator/discover'},stdio:['ignore','pipe','pipe']});
+ child=spawn(env.DISCOVER_PYTHON||'python3',[fileURLToPath(new URL('../discover/worker.py',import.meta.url)),env.DB_PATH,j.id],{env:{PATH:env.PATH,LANG:'C.UTF-8',PYTHONUNBUFFERED:'1',DISCOVER_CONCURRENCY:env.DISCOVER_CONCURRENCY||'6',SCRAPECREATORS_API_KEY:env.SCRAPECREATORS_API_KEY,DISCOVER_OPENAI_API_KEY:env.DISCOVER_OPENAI_API_KEY,DISCOVER_DATA_DIR:env.DISCOVER_DATA_DIR||'/var/lib/meedoo-creator/discover'},stdio:['ignore','pipe','pipe']});
  child.stdout.on('data',b=>process.stdout.write(b));child.stderr.on('data',()=>{});
  child.on('error',()=>{store.db.prepare("UPDATE discover_jobs SET state='failed',error='worker_start_failed' WHERE id=?").run(j.id);});
  child.on('close',code=>{child=null;publish(j.id);if(code&&!stopping)store.db.prepare("UPDATE discover_jobs SET state='failed',error=coalesce(error,'worker_interrupted') WHERE id=?").run(j.id);});

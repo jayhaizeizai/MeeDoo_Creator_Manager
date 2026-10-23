@@ -21,6 +21,16 @@ test('Review scopes images and scores, accepts five-point scale, persists revisi
  assert.equal(String(await r.image(a,j.list_id,'tiktok--alice','post-01.jpg')),'test-image');
  await assert.rejects(r.image(a,j.list_id,'tiktok--alice','../../secret'));await assert.rejects(r.image(a,j.list_id,'tiktok--alice','post-02.jpg'));
  assert.equal(d.detail(a,j.id).passed,1);
+ assert.equal(r.records(a,{scores:'4,5',reviewers:'u'}).items.length,1);
+ assert.equal(r.records(a,{scores:'1,2'}).items.length,0);
+ assert.equal(r.records(a,{from:'2099-01-01T00:00:00Z'}).items.length,0);
+ assert.equal(r.records({...a,tenant_key:'other'}).items.length,0);
+ assert.throws(()=>r.records({...a,role:'reviewer'}));
+ assert.throws(()=>r.records(a,{from:'bad'}));
+ const dest=s.write(a,'creator_lists',{name:'Picks',creator_ids:[]});
+ assert.equal(r.addRecords(a,{filter:{scores:'5'},list_id:dest.id}).added,1);
+ assert.equal(r.addRecords(a,{filter:{scores:'5'},list_id:dest.id}).added,0);
+ assert.throws(()=>r.addRecords(a,{filter:{scores:'2'},list_id:dest.id}));
  s.db.prepare('UPDATE records SET id=? WHERE id=?').run(defaultReviewList,j.list_id);
  s.db.prepare('UPDATE discover_jobs SET list_id=? WHERE id=?').run(defaultReviewList,j.id);
  const reviewer={tenant_key:'t',open_id:'sunny',role:'reviewer'};
@@ -30,5 +40,9 @@ test('Review scopes images and scores, accepts five-point scale, persists revisi
  assert.equal(r.get({...reviewer,open_id:'albert'},defaultReviewList).items[0].score,null);
  assert.throws(()=>r.get({...reviewer,tenant_key:'elsewhere'},defaultReviewList));
  assert.throws(()=>r.get(reviewer,j.list_id));
+ const assigned=creatorReview(s,{REVIEW_LIST_ASSIGNMENTS:JSON.stringify({albert:defaultReviewList})});
+ assert.equal(assigned.defaultList({...reviewer,open_id:'albert'}),defaultReviewList);
+ assert.equal(creatorReview(s,{REVIEW_LIST_ASSIGNMENTS:JSON.stringify({albert:'new-list'})}).defaultList({...reviewer,open_id:'albert'}),'new-list');
+ assert.equal(assigned.defaultList(reviewer),defaultReviewList);
  }finally{s.close();await rm(root,{recursive:true,force:true});}
 });

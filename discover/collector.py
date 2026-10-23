@@ -25,6 +25,15 @@ def save(path,data):
     temp.replace(path)
 
 def api(url,headers,payload=None):
+    started=time.monotonic()
+    endpoint=urlparse(url)
+    try:
+        result=_api_with_retries(url,headers,payload)
+        return result
+    finally:
+        print(json.dumps({'event':'api_call','provider':endpoint.hostname,'endpoint':endpoint.path,'seconds':round(time.monotonic()-started,3)}),flush=True)
+
+def _api_with_retries(url,headers,payload=None):
     for attempt in range(3):
         try:
             data=json.dumps(payload).encode() if payload is not None else None
@@ -34,12 +43,14 @@ def api(url,headers,payload=None):
                 raise RuntimeError('provider_unsuccessful')
             return result
         except HTTPError as exc:
+            print(json.dumps({'event':'api_error','provider':urlparse(url).hostname,'endpoint':urlparse(url).path,'attempt':attempt+1,'error':'http_'+str(exc.code)}),flush=True)
             if exc.code not in (429,500,502,503,504) or attempt==2:
                 error=RuntimeError('http_'+str(exc.code))
                 try: error.response=json.loads(exc.read())
                 except (ValueError,OSError): error.response={}
                 raise error from None
         except (URLError,TimeoutError):
+            print(json.dumps({'event':'api_error','provider':urlparse(url).hostname,'endpoint':urlparse(url).path,'attempt':attempt+1,'error':'network_timeout'}),flush=True)
             if attempt==2: raise RuntimeError('network_timeout') from None
         time.sleep(2**(attempt+1))
 
@@ -75,12 +86,12 @@ def preview(folder,index,candidates):
             continue
     return None
 
-def source_for(platform,handle,key,folder):
+def source_for(platform,handle,key,folder,profile_response=None):
     path=folder/'source.json'
     if path.exists(): return json.loads(path.read_text(encoding='utf-8'))
     profile={}; posts=[]; candidates=[]
     if platform=='tiktok':
-        response=scrape('/v1/tiktok/profile',{'handle':handle},key)
+        response=profile_response if profile_response is not None else scrape('/v1/tiktok/profile',{'handle':handle},key)
         user=response.get('user') or {}
         if not user: raise RuntimeError('missing_profile')
         profile={k:user.get(k) for k in ('uniqueId','nickname','signature','verified','privateAccount')}
@@ -99,7 +110,7 @@ def source_for(platform,handle,key,folder):
             posts.append({'index':i,'id':p.get('aweme_id'),'caption':p.get('desc','')[:2500],'url':f'https://www.tiktok.com/@{handle}/video/{p.get("aweme_id")}','pinned':bool(p.get('is_top'))})
             candidates.append(images)
     else:
-        response=scrape('/v1/instagram/profile',{'handle':handle},key)
+        response=profile_response if profile_response is not None else scrape('/v1/instagram/profile',{'handle':handle},key)
         user=(response.get('data') or {}).get('user') or response.get('user') or {}
         if not user: raise RuntimeError('missing_profile')
         profile={k:user.get(k) for k in ('username','full_name','biography','pronouns','category_name','is_private')}

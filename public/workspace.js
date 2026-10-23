@@ -1,3 +1,4 @@
+import {mountReviewAdmin} from './review-admin.js';
 import {openOutreach} from './outreach.js';
 import {creatorTable} from './creator-table.mjs';
 import {mountDiscover} from './discover.js';
@@ -248,8 +249,8 @@ export function showWorkspace({page,session,csrf,toast}){
  }
  async function run(fn){try{await fn();}catch(e){if(alive()){target.innerHTML=note(e.message)+button('retry-live','重试');target.querySelector('#retry-live').onclick=()=>{if(e.status===401||['authentication_required','login_again'].includes(e.code))location.reload();else run(fn);};}}}
  target.innerHTML='<div class="card empty">正在加载真实数据…</div>';
+ if(page===12){run(()=>mountReviewAdmin(target,api,alive));return;}
  if(page===1){run(()=>mountCreatorFunnel(target,api,alive));return;}
  const kind={2:'creators',3:'collaborations',4:'agreements',6:'deliverables',7:'policies'}[page];
  if(page===11){target.innerHTML='';run(()=>mountDiscover(target,api,alive,toast));}else if(kind)run(()=>kind==='creators'?listHome():list(kind));else if(page===5)target.innerHTML=note('目前没有满足发货门槛的合作。合同接受、产品、尺寸、地址、库存和国家资格全部核验后才能发货。');else run(page===10?async()=>{target.innerHTML='';if(session.role==='admin')await mountMailLibrary(target,api);else target.innerHTML=note('仅管理员可以管理邮件模板与附件。');}:page===9?agentQueue:page===8?connections:page===0?mailbox:home);
 }
-

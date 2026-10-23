@@ -9,9 +9,9 @@ def follower_count(platform, response):
     return None
 
 def follower_criterion(value):
-    status='unknown' if value is None else 'pass' if 3000<=value<=100000 else 'fail'
-    explanation='无法取得有效粉丝数，不满足本轮必选条件。' if value is None else f'主页接口粉丝数 {value:,}；要求为 3,000–100,000（含边界）。'
-    return {'criterion':'followers_3000_100000','status':status,'evidence_posts':[],'explanation':explanation}
+    status='unknown' if value is None else 'pass' if 3000<=value else 'fail'
+    explanation='无法取得有效粉丝数，不满足本轮必选条件。' if value is None else f'主页接口粉丝数 {value:,}；要求为 至少 3,000（无上限）。'
+    return {'criterion':'followers_min_3000','status':status,'evidence_posts':[],'explanation':explanation}
 
 def validate_visual_evidence(result, indices, criteria):
     if len(result['criteria'])!=len(criteria) or {c['criterion'] for c in result['criteria']}!=set(criteria):raise RuntimeError('invalid_criteria')

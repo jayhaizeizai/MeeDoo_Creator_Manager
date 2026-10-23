@@ -4,6 +4,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from collector import scrape
 from screening import screen,CONFIG
+from dedup import reuse_completed
 
 def connect(path):
  db=sqlite3.connect(path,timeout=30);db.row_factory=sqlite3.Row;db.execute('PRAGMA busy_timeout=30000');return db
@@ -72,19 +73,25 @@ def run(path,job_id):
  root=Path(os.environ.get('DISCOVER_DATA_DIR','/var/lib/meedoo-creator/discover'))/job_id;root.mkdir(parents=True,exist_ok=True)
  with db:db.execute("UPDATE discover_jobs SET state='searching',updated_at=? WHERE id=?",(stamp(),job_id))
  search(db,j,sk)
+ reused=reuse_completed(db,j,root)
+ print(json.dumps({"event":"history_reused","job":job_id,"count":reused}),flush=True)
  candidates=db.execute("SELECT * FROM discover_candidates WHERE job_id=? AND status='pending' ORDER BY account_key",(job_id,)).fetchall()
  def one(c):
+  started=time.monotonic();attempts=1
   pair=(c['platform'],c['handle']);name,result=screen(pair,sk,ok,root)
-  if result.get('error') and result['error'] not in ('missing_profile',):name,result=screen(pair,sk,ok,root)
+  if result.get('error') and result['error'] not in ('missing_profile',):
+   attempts=2;name,result=screen(pair,sk,ok,root)
   source_file=root/name/'source.json';source=json.loads(source_file.read_text()) if source_file.exists() else {}
-  return c,result,source
- with ThreadPoolExecutor(max_workers=6) as pool:
+  return c,result,source,round(time.monotonic()-started,3),attempts
+ concurrency=max(1,min(10,int(os.environ.get('DISCOVER_CONCURRENCY','6'))))
+ print(json.dumps({'event':'screening_started','job':job_id,'concurrency':concurrency,'pending':len(candidates)}),flush=True)
+ with ThreadPoolExecutor(max_workers=concurrency) as pool:
   for f in as_completed([pool.submit(one,c) for c in candidates]):
-   c,r,source=f.result()
+   c,r,source,seconds,attempts=f.result()
    with db:
     db.execute('UPDATE discover_candidates SET status=?,selected=?,result_json=?,source_json=?,error=? WHERE job_id=? AND account_key=?',('error' if r.get('error') else 'done',r['selected'],json.dumps(r),json.dumps(source),r.get('error'),job_id,c['account_key']))
     db.execute('UPDATE discover_jobs SET updated_at=? WHERE id=?',(stamp(),job_id))
-   print(json.dumps({'event':'screened','account':c['account_key'],'selected':r['selected']}),flush=True)
+   print(json.dumps({'event':'screened','job':job_id,'account':c['account_key'],'selected':r['selected'],'error':r.get('error'),'seconds':seconds,'attempts':attempts,'visual_assessed':r.get('visual_assessed',False),'concurrency':concurrency}),flush=True)
  state=json.loads(db.execute('SELECT search_state FROM discover_jobs WHERE id=?',(job_id,)).fetchone()[0]);partial=any(s.get('reason')=='provider_error' for s in state.values())
  with db:db.execute('UPDATE discover_jobs SET state=?,updated_at=? WHERE id=?',('partial' if partial else 'completed',stamp(),job_id))
  db.close()

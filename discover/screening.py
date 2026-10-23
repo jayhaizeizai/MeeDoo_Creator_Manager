@@ -5,12 +5,15 @@ from collector import source_for,preview,scrape,url_list,save,api
 CONFIG=json.loads(Path(__file__).with_name('policy.json').read_text(encoding='utf-8'))
 POLICY=CONFIG['prompt'];SCHEMA=CONFIG['schema'];CRITERIA=CONFIG['criteria']
 _original_source_for=source_for
-def source_for(platform,handle,key,folder):
-    source=_original_source_for(platform,handle,key,folder)
+def source_for(platform,handle,key,folder,profile_loader=None):
+    def load():
+        response=profile_loader() if profile_loader and not (folder/'source.json').exists() else None
+        return _original_source_for(platform,handle,key,folder,profile_response=response)
+    source=load()
     if any(not p.get('image') for p in source['posts']):
         (folder/'source.json').replace(folder/'source-first-attempt.json')
         for image in folder.glob('post-*.jpg'): image.unlink()
-        source=_original_source_for(platform,handle,key,folder)
+        source=load()
     return source
 
 def screen(pair,sk,ok,root):
@@ -19,23 +22,29 @@ def screen(pair,sk,ok,root):
     if result_path.exists():
         cached=json.loads(result_path.read_text(encoding='utf-8'))
         if cached.get('rule_version')==CONFIG['version']:return name,cached
+    profile_response=None
+    def get_profile():
+        nonlocal profile_response
+        if profile_response is None:
+            profile_response=scrape('/v1/'+pair[0]+'/profile',{'handle':pair[1]},sk)
+        return profile_response
     try:
         # Reuse a versioned profile lookup across retries, never a search-result count.
         fp=folder/'followers.json'
         follower_data=json.loads(fp.read_text()) if fp.exists() else {}
         if follower_data.get('rule_version')!=CONFIG['version']:
-            response=scrape('/v1/'+pair[0]+'/profile',{'handle':pair[1]},sk)
+            response=get_profile()
             follower_data={'rule_version':CONFIG['version'],'count':follower_count(pair[0],response),'checked_at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'source':'profile_api'}
             save(fp,follower_data)
         follower=follower_criterion(follower_data['count'])
         if follower['status']!='pass':
             result={'selected':0,'rule_version':CONFIG['version'],'summary':follower['explanation'],'criteria':[follower],'followers':follower_data['count'],'followers_checked_at':follower_data['checked_at'],'followers_source':'profile_api','visual_assessed':False,'limitations':['粉丝数门槛未通过，未调用视觉模型。']}
             save(result_path,result);return name,result
-        source=source_for(*pair,sk,folder)
+        source=source_for(*pair,sk,folder,profile_loader=get_profile)
         source['followers']=follower_data;save(folder/'source.json',source)
         if 'avatar_checked' not in source or source.get('avatar_error'):
             try:
-                response=scrape('/v1/'+pair[0]+'/profile',{'handle':pair[1]},sk)
+                response=get_profile()
                 if pair[0]=='tiktok':
                     user=response.get('user') or {}
                     urls=[user[k] for k in ('avatarLarger','avatarMedium','avatarThumb') if isinstance(user.get(k),str)]
@@ -75,4 +84,3 @@ def screen(pair,sk,ok,root):
     except Exception as exc:
         result={'selected':0,'rule_version':CONFIG['version'],'error':str(exc)[:100] if isinstance(exc,RuntimeError) else type(exc).__name__}
         save(folder/'error.json',result);return name,result
-
