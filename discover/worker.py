@@ -72,7 +72,10 @@ def run(path,job_id):
  sk=os.environ['SCRAPECREATORS_API_KEY'];ok=os.environ['DISCOVER_OPENAI_API_KEY']
  root=Path(os.environ.get('DISCOVER_DATA_DIR','/var/lib/meedoo-creator/discover'))/job_id;root.mkdir(parents=True,exist_ok=True)
  with db:db.execute("UPDATE discover_jobs SET state='searching',updated_at=? WHERE id=?",(stamp(),job_id))
- search(db,j,sk)
+ if any(s.get('provider')=='tikhub' for s in json.loads(j['search_state']).values()):
+  from tikhub_search import search as tikhub_search
+  tikhub_search(db,j)
+ else:search(db,j,sk)
  reused=reuse_completed(db,j,root)
  print(json.dumps({"event":"history_reused","job":job_id,"count":reused}),flush=True)
  candidates=db.execute("SELECT * FROM discover_candidates WHERE job_id=? AND status='pending' ORDER BY account_key",(job_id,)).fetchall()

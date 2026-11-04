@@ -8,6 +8,7 @@ Group=meedoo-creator
 WorkingDirectory=/opt/meedoo-creator/current
 EnvironmentFile=/etc/meedoo-creator.env
 EnvironmentFile=/etc/meedoo-discover.env
+EnvironmentFile=/etc/meedoo-tikhub.env
 ExecStart=/usr/bin/flock -n /var/lib/meedoo-creator/discover.lock /usr/bin/node deploy/discover-worker.mjs
 Restart=on-failure
 RestartSec=10

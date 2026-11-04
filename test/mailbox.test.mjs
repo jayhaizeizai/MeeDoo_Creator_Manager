@@ -34,3 +34,16 @@ test('workspace read state is user-scoped, survives refresh and resets for new m
 assert.equal((await call('mail_threads?filter=unread')).data.total,1);assert.equal((await call('mail_threads/'+t.id+'/read','POST',{...a,role:'operator',open_id:'other'})).status,404);assert.equal((await call('mail_threads/'+t.id+'/read','POST')).status,200);assert.equal((await call('mail_threads?filter=unread')).data.total,0);assert.equal((await call('mail_threads')).data.items[0].unread,false);assert.equal((await call('mail_threads?filter=unread','GET',{...a,open_id:'other'})).data.total,1);backend.store.write(a,'mail_threads',{messages:[...t.messages,{id:'m2',body:'new',labels:['UNREAD']}],subject:'hello'},{id:t.id,version:t.version});assert.equal((await call('mail_threads?filter=unread')).data.total,1);assert.equal((await call('mail_threads/'+t.id+'/read','POST',a,false)).status,200);
 }finally{backend.store.close();}});
 test('manual reply can be saved before AI runs and remains draft-only',async()=>{const b=createBackend({APP_ORIGIN:'https://example.test'}),user={role:'admin',open_id:'a',tenant_key:'t'};try{const t=b.store.write(user,'mail_threads',{messages:[]});let result;await b.handle({method:'POST',headers:{origin:'https://example.test','x-csrf-token':'c','content-type':'application/json'},async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify({draft:'A manually written reply'}));}},{},new URL('https://example.test/api/mail_threads/'+t.id+'/draft'),{user,csrf:'c'},(status,data)=>result={status,data});assert.equal(result.status,201);assert.equal(result.data.created_by_ai,false);assert.equal(result.data.status,'suggestion');assert.equal(result.data.draft,'A manually written reply');}finally{b.store.close();}});
+
+test('inbox and sent folders use matching message preview, recipient and sort order',async()=>{
+ const b=createBackend({APP_ORIGIN:'https://example.test',WORK_EMAIL:'work@example.test'}),a={role:'admin',open_id:'a',tenant_key:'t'};
+ try{
+ const msg=(id,at,label,body)=>({id,at:String(at),labels:[label],from:label==='SENT'?'work@example.test':'creator@example.test',to:label==='SENT'?'creator@example.test':'work@example.test',body});
+ b.store.write(a,'mail_threads',{subject:'Mixed',messages:[msg('i',10,'INBOX','received preview'),msg('s',100,'SENT','sent preview')]});
+ b.store.write(a,'mail_threads',{subject:'Inbound',messages:[msg('i2',20,'INBOX','inbound only')]});
+ b.store.write(a,'mail_threads',{subject:'Outbound',messages:[msg('s2',50,'SENT','outbound only')]});
+ async function get(folder){let r;await b.handle({method:'GET',headers:{}},{},new URL('https://example.test/api/mail_threads?folder='+folder),{user:a},(status,data)=>r={status,data});assert.equal(r.status,200);return r.data;}
+ const inbox=await get('inbox');assert.equal(inbox.total,2);assert.deepEqual(inbox.items.map(x=>x.subject),['Inbound','Mixed']);assert.equal(inbox.items[1].preview,'received preview');assert.equal(inbox.items[1].contact,'creator@example.test');
+ const sent=await get('sent');assert.equal(sent.total,2);assert.deepEqual(sent.items.map(x=>x.subject),['Mixed','Outbound']);assert.equal(sent.items[0].preview,'sent preview');assert.equal(sent.items[0].contact,'creator@example.test');assert.equal(sent.items[0].unread,false);
+ }finally{b.store.close();}
+});
